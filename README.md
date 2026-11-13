@@ -28,11 +28,14 @@ Standalone Windows desktop app (Rust + egui). Finds common dev caches and gives 
 ## Run
 
 ```powershell
-cd C:\Users\ramen\orca\projects\cache-cleaner
-cargo run --release
+cargo tauri build   # or: npx tauri build
 ```
 
-First build downloads crates (eframe etc.) — takes a few minutes.
+Built app + installer land in `<CARGO_TARGET_DIR>\release\` (currently `D:\sucky-target\release\`).
+
+For dev iteration: `npx tauri dev`.
+
+The old egui version is preserved at git tag `egui-legacy`.
 
 ## Safety
 

@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sucky — Cache Cleaner</title>
+<style>
+  /* ---------- Design tokens: soft green ---------- */
+  @font-face {
+    font-family: "Fredoka";
+    src: url("fredoka-variable.ttf") format("truetype");
+    font-weight: 300 700;
+    font-display: swap;
+  }
+  :root {
+    --bg:          #EEF4EC;
+    --bg-2:        #E4EEE1;
+    --surface:     #FAFCF8;
+    --line:        #DCE7D8;
+    --ink:         #1F3A2D;
+    --ink-soft:    #5E7A6A;
+    --ink-faint:   #8FA697;
+
+    --green-50:    #F1F8F2;
+    --green-100:   #DDEEDF;
+    --green-300:   #A9D4B2;
+    --green-500:   #6DB784;
+    --green-600:   #4F9B69;
+    --green-700:   #3A7F54;
+
+    --warn-bg:     #FFF4DC;
+    --warn-ink:    #9A6A12;
+    --danger:      #D9694A;
+
+    --radius-lg:   22px;
+    --radius-md:   14px;
+    --shadow:      0 1px 2px rgba(31,58,45,.05), 0 8px 24px rgba(31,58,45,.07);
+    --font: "Fredoka", "Nunito", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    background:
+      radial-gradient(900px 400px at 85% -10%, #DCEFDD 0%, transparent 60%),
+      radial-gradient(700px 400px at -10% 30%, #E6F2E3 0%, transparent 60%),
+      var(--bg);
+    display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 28px;
+    background: rgba(250,252,248,.7);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-mark { width: 42px; height: 42px; flex: none; }
+  .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: .2px; line-height: 1.1; }
+  .brand p  { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- Layout ---------- */
+  main {
+    flex: 1; overflow: auto;
+    width: min(1180px, 100%); margin: 0 auto;
+    padding: 28px 28px 12px;
+    display: grid; gap: 24px;
+    align-content: start;
+  }
+  .hero {
+    display: grid; grid-template-columns: 1fr minmax(340px, 480px);
+    gap: 28px; align-items: center;
+  }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+
+  .hero h2 {
+    font-size: clamp(34px, 4.4vw, 52px);
+    line-height: 1.05; font-weight: 700; letter-spacing: -.5px;
+  }
+  .hero h2 span { color: var(--green-600); }
+  .hero p { margin-top: 12px; color: var(--ink-soft); font-size: 15px; line-height: 1.55; max-width: 46ch; }
+
+  .actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-weight: 600; font-size: 15px;
+    padding: 12px 22px; border-radius: 999px; border: 1.5px solid transparent;
+    cursor: pointer; transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .btn:active { transform: translateY(1px) scale(.99); }
+  .btn:focus-visible { outline: 3px solid var(--green-300); outline-offset: 2px; }
+  .btn-ghost { background: var(--surface); color: var(--green-700); border-color: var(--green-300); }
+  .btn-ghost:hover { background: var(--green-50); }
+  .btn-primary {
+    background: linear-gradient(180deg, var(--green-500), var(--green-600));
+    color: #fff; box-shadow: 0 6px 16px rgba(79,155,105,.35);
+  }
+  .btn-primary:hover { box-shadow: 0 8px 22px rgba(79,155,105,.45); transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--green-100); color: var(--ink-faint); box-shadow: none; cursor: not-allowed; transform: none; }
+
+  /* ---------- Tank status card ---------- */
+  .tank {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    padding: 22px 24px;
+    display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center;
+  }
+  .gauge {
+    --pct: 99;
+    width: 112px; height: 112px; border-radius: 50%;
+    background:
+      radial-gradient(closest-side, var(--surface) 76%, transparent 78% 100%),
+      conic-gradient(var(--gauge-color, var(--danger)) calc(var(--pct) * 1%), var(--green-100) 0);
+    display: grid; place-items: center; position: relative;
+    transition: background .8s ease;
+  }
+  .gauge b { font-size: 28px; line-height: 1; }
+  .gauge small {
+    position: absolute; bottom: 26px; font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+  }
+  .tank-head { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--green-50); border-radius: var(--radius-md); padding: 10px 12px; }
+  .stat span { display: block; font-size: 11px; color: var(--ink-soft); font-weight: 500; }
+  .stat strong { font-size: 18px; color: var(--green-700); font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 99px; background: var(--green-100); margin-top: 12px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--green-300), var(--green-500)); transition: width .5s ease; }
+
+  /* ---------- Cache list ---------- */
+  .panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    padding: 8px 12px 12px;
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 14px 8px;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+  }
+  .panel-head button { font: inherit; font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--green-700); background: none; border: 0; cursor: pointer; font-weight: 600; }
+  .panel-head button:hover { text-decoration: underline; }
+
+  .row {
+    display: grid; grid-template-columns: 28px 1fr auto auto; gap: 14px; align-items: center;
+    padding: 14px; border-radius: var(--radius-md);
+    transition: background .15s ease; cursor: pointer;
+  }
+  .row + .row { margin-top: 2px; }
+  .row:hover { background: var(--green-50); }
+  .row.is-on { background: var(--green-50); }
+  .row.unavailable { opacity: .75; }
+
+  /* custom checkbox */
+  .check { appearance: none; width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--green-300); background: var(--surface); display: grid; place-items: center; cursor: pointer; transition: all .15s ease; }
+  .check::after { content: ""; width: 10px; height: 6px; border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(-45deg) scale(0); transition: transform .15s ease; margin-top: -2px; }
+  .check:checked { background: var(--green-600); border-color: var(--green-600); }
+  .check:checked::after { transform: rotate(-45deg) scale(1); }
+  .check:focus-visible { outline: 3px solid var(--green-300); outline-offset: 2px; }
+  .check:disabled { border-color: var(--line); cursor: not-allowed; }
+
+  .row-title { font-weight: 600; font-size: 15px; }
+  .row-path  { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip { font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--warn-bg); color: var(--warn-ink); white-space: nowrap; }
+  .size { min-width: 88px; text-align: right; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  /* Rush repos section */
+  .rush-head { display: flex; gap: 8px; align-items: center; padding: 10px 14px 4px; }
+  .rush-head input {
+    flex: 1; font: 12px var(--mono); padding: 8px 12px; border-radius: var(--radius-md);
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); outline: none;
+  }
+  .rush-head input:focus { border-color: var(--green-300); }
+  .rush-head button { font: inherit; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 99px; border: 0; background: var(--green-100); color: var(--green-700); cursor: pointer; }
+  .rush-head button:hover { background: var(--green-300); }
+  .remove-rush { font: inherit; font-size: 13px; font-weight: 700; color: var(--ink-faint); background: none; border: 0; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+  .remove-rush:hover { color: var(--danger); background: var(--warn-bg); }
+
+  /* ---------- Confirm modal ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(31,58,45,.35); backdrop-filter: blur(2px);
+    display: none; place-items: center; z-index: 10;
+  }
+  .modal-backdrop.show { display: grid; animation: fade .15s ease; }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  .modal {
+    background: var(--surface); border-radius: var(--radius-lg); box-shadow: 0 24px 60px rgba(31,58,45,.35);
+    padding: 24px 26px; width: min(480px, 90vw); border: 1px solid var(--line);
+  }
+  .modal h3 { font-size: 18px; letter-spacing: -.2px; }
+  .modal ul { margin: 12px 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; }
+  .modal ul li { margin: 3px 0; }
+  .modal-total { font-weight: 700; font-size: 15px; color: var(--green-700); margin-bottom: 6px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .btn-danger { background: var(--danger); color: #fff; }
+
+  /* ---------- Log ---------- */
+  .log { border-top: 1px solid var(--line); background: rgba(250,252,248,.8); }
+  .log-bar { display: flex; align-items: center; gap: 10px; padding: 6px 28px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+  .log-bar button { font: inherit; font-size: 11px; font-weight: 600; background: var(--green-100); color: var(--green-700); border: 0; border-radius: 99px; padding: 3px 12px; cursor: pointer; }
+  .log pre { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); padding: 0 28px 12px; max-height: 84px; overflow: auto; }
+  .log pre em { color: var(--green-600); font-style: normal; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+    <path d="M6 32 L18 22 L18 42 Z" fill="#8FCB9F"/>
+    <ellipse cx="38" cy="32" rx="22" ry="19" fill="#A9D4B2"/>
+    <ellipse cx="38" cy="42" rx="14" ry="9" fill="#DDEEDF"/>
+    <circle cx="48" cy="27" r="6" fill="#fff"/><circle cx="49.5" cy="27" r="3" fill="#1F3A2D"/>
+    <path d="M44 40 q5 5 10 0" stroke="#3A7F54" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="30" cy="24" r="1.6" fill="#6DB784"/><circle cx="35" cy="20" r="1.3" fill="#6DB784"/><circle cx="27" cy="31" r="1.4" fill="#6DB784"/>
+  </svg>
+  <div class="brand">
+    <h1>Sucky</h1>
+    <p>your cleanup buddy</p>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <h2>A clean tank,<br><span>a clean disk.</span></h2>
+      <p>Sucky hunts dev caches, temp files and Rush debris. One scrub and it's gone.</p>
+      <div class="actions">
+        <button class="btn btn-ghost" id="scan">Scan my disk</button>
+        <button class="btn btn-primary" id="clean" disabled>Clean 0.0 GB</button>
+      </div>
+    </div>
+
+    <aside class="tank" aria-label="Tank status">
+      <div class="gauge" id="gauge" style="--pct:0">
+        <b id="gaugePct">—</b><small>Full</small>
+      </div>
+      <div>
+        <div class="tank-head">Tank status</div>
+        <div class="stats">
+          <div class="stat"><span>Drive free</span><strong id="free">—</strong></div>
+          <div class="stat"><span>Suggested clean</span><strong id="sugg">—</strong></div>
+          <div class="stat"><span>Junk found</span><strong id="junk">—</strong></div>
+        </div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="panel" aria-label="Caches">
+    <div class="panel-head">
+      <span>Caches</span>
+      <button id="toggleAll" type="button">Select all</button>
+    </div>
+    <div id="rows"></div>
+    <div class="rush-head">
+      <input id="repoInput" placeholder="C:\path\to\rush-repo (contains rush.json)" spellcheck="false">
+      <button id="addRepo" type="button">Add Rush repo</button>
+    </div>
+    <div id="rushRows"></div>
+  </section>
+</main>
+
+<footer class="log">
+  <div class="log-bar">Log <button type="button" id="clearLog">Clear</button></div>
+  <pre id="log"><em>[ready]</em> Click Scan my disk to measure. Clean to purge.</pre>
+</footer>
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-label="Confirm clean">
+  <div class="modal">
+    <h3>Scrub these? This can't be undone.</h3>
+    <ul id="modalList"></ul>
+    <div class="modal-total" id="modalTotal"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancel" type="button">Keep</button>
+      <button class="btn btn-primary btn-danger" id="modalConfirm" type="button">Scrub it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const { invoke } = window.__TAURI__.core;
+  const $ = (id) => document.getElementById(id);
+  const fmtSize = (b) => {
+    const KB = 1024, MB = KB * 1024, GB = MB * 1024;
+    if (b >= GB) return (b / GB).toFixed(1) + ' GB';
+    if (b >= MB) return (b / MB).toFixed(1) + ' MB';
+    if (b >= KB) return (b / KB).toFixed(1) + ' KB';
+    return b + ' B';
+  };
+  const stamp = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
+  const log = (msg) => { const pre = $('log'); pre.innerHTML += `\n<em>[${stamp()}]</em> ${msg}`; pre.scrollTop = pre.scrollHeight; };
+
+  let state = { targets: [], rushRepos: [], driveTotal: 0, driveFree: 0, busy: false };
+
+  function selectedBytes() {
+    let t = state.targets.filter(t => t.checked && t.available).reduce((s, t) => s + (t.sizeBytes || 0), 0);
+    t += state.rushRepos.filter(r => r.checked).reduce((s, r) => s + (r.sizeBytes || 0), 0);
+    return t;
+  }
+  function suggestedBytes() {
+    const big = (b) => (b || 0) >= 100 * 1024 * 1024;
+    let t = state.targets.filter(t => t.available && big(t.sizeBytes)).reduce((s, t) => s + t.sizeBytes, 0);
+    t += state.rushRepos.filter(r => big(r.sizeBytes)).reduce((s, r) => s + r.sizeBytes, 0);
+    return t;
+  }
+  function totalBytes() {
+    return state.targets.reduce((s, t) => s + (t.sizeBytes || 0), 0) + state.rushRepos.reduce((s, r) => s + (r.sizeBytes || 0), 0);
+  }
+
+  function renderGauge() {
+    const total = state.driveTotal, free = state.driveFree;
+    if (!total) return;
+    const used = Math.max(0, total - free);
+    const pct = Math.round((used / total) * 100);
+    const gauge = $('gauge');
+    gauge.style.setProperty('--pct', pct);
+    gauge.style.setProperty('--gauge-color', pct >= 90 ? 'var(--danger)' : 'var(--green-500)');
+    $('gaugePct').textContent = pct + '%';
+    $('free').textContent = fmtSize(free);
+    $('sugg').textContent = fmtSize(suggestedBytes());
+    $('junk').textContent = fmtSize(totalBytes());
+    const bar = $('bar'); bar.style.width = Math.min(100, (totalBytes() / Math.max(total, 1)) * 100 * 2) + '%';
+  }
+
+  function updateCleanButton() {
+    const sel = selectedBytes();
+    $('clean').textContent = `Clean ${(sel / 1e9).toFixed(1)} GB`;
+    $('clean').disabled = sel === 0 || state.busy;
+  }
+
+  function renderRows() {
+    const container = $('rows');
+    container.innerHTML = '';
+    for (const t of state.targets) {
+      const row = document.createElement('label');
+      row.className = 'row' + (t.checked ? ' is-on' : '') + (t.available ? '' : ' unavailable');
+      row.innerHTML = `
+        <input class="check" type="checkbox" ${t.checked ? 'checked' : ''} ${t.available ? '' : 'disabled'}>
+        <div>
+          <div class="row-title">${t.label}${t.note ? ` <span style="color:var(--ink-faint);font-weight:500">${t.note}</span>` : ''}</div>
+          ${t.path ? `<div class="row-path">${t.path}</div>` : ''}
+        </div>
+        <span>${t.available ? '' : '<span class="chip">unavailable</span>'}</span>
+        <span class="size">${t.sizeBytes != null ? fmtSize(t.sizeBytes) + ' · ' + (t.fileCount ?? 0).toLocaleString() + ' files' : '—'}</span>`;
+      const box = row.querySelector('.check');
+      box.addEventListener('change', () => { t.checked = box.checked; row.classList.toggle('is-on', t.checked); updateCleanButton(); renderGauge(); });
+      container.appendChild(row);
+    }
+
+    const rush = $('rushRows');
+    rush.innerHTML = '';
+    for (const r of state.rushRepos) {
+      const row = document.createElement('label');
+      row.className = 'row' + (r.checked ? ' is-on' : '');
+      row.innerHTML = `
+        <input class="check" type="checkbox" ${r.checked ? 'checked' : ''}>
+        <div>
+          <div class="row-title">Rush repo</div>
+          <div class="row-path">${r.path}</div>
+        </div>
+        <button class="remove-rush" type="button" title="Remove from list">✕</button>
+        <span class="size">${r.sizeBytes != null ? fmtSize(r.sizeBytes) + ' · ' + (r.fileCount ?? 0).toLocaleString() + ' files' : '—'}</span>`;
+      const box = row.querySelector('.check');
+      box.addEventListener('change', () => { r.checked = box.checked; row.classList.toggle('is-on', r.checked); updateCleanButton(); renderGauge(); });
+      row.querySelector('.remove-rush').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await invoke('remove_rush_repo', { path: r.path });
+        log(`removed repo ${r.path}`);
+        await scan();
+      });
+      rush.appendChild(row);
+    }
+  }
+
+  async function scan() {
+    if (state.busy) return;
+    state.busy = true;
+    $('scan').disabled = true;
+    $('clean').disabled = true;
+    $('scan').textContent = 'Scanning…';
+    try {
+      const r = await invoke('scan_targets');
+      state.targets = r.targets;
+      state.rushRepos = r.rush_repos;
+      state.driveTotal = r.drive_total ?? 0;
+      state.driveFree = r.drive_free ?? 0;
+      renderRows();
+      renderGauge();
+      updateCleanButton();
+      log('scan complete');
+    } catch (e) {
+      log('scan failed: ' + e);
+    } finally {
+      state.busy = false;
+      $('scan').disabled = false;
+      $('scan').textContent = 'Scan my disk';
+      updateCleanButton();
+    }
+  }
+
+  function openConfirm() {
+    const items = [
+      ...state.targets.filter(t => t.checked && t.available).map(t => `${t.label} — ${fmtSize(t.sizeBytes || 0)}`),
+      ...state.rushRepos.filter(r => r.checked).map(r => `rush purge: ${r.path} — ${fmtSize(r.sizeBytes || 0)}`),
+    ];
+    $('modalList').innerHTML = items.map(i => `<li>${i}</li>`).join('');
+    $('modalTotal').textContent = `Total: ${fmtSize(selectedBytes())}`;
+    $('modal').classList.add('show');
+  }
+  const closeModal = () => $('modal').classList.remove('show');
+
+  async function clean() {
+    if (state.busy) return;
+    state.busy = true;
+    $('modalConfirm').disabled = true;
+    $('modalConfirm').textContent = 'Scrubbing…';
+    const payload = {
+      targetIds: state.targets.filter(t => t.checked && t.available).map(t => t.id),
+      rushRepos: state.rushRepos.filter(r => r.checked).map(r => r.path),
+    };
+    try {
+      const r = await invoke('clean_targets', payload);
+      for (const line of r.lines) log(line);
+      log(`<em>Sucky scrubbed ${fmtSize(r.total_freed)} of junk</em>`);
+    } catch (e) {
+      log('clean failed: ' + e);
+    } finally {
+      state.busy = false;
+      $('modalConfirm').disabled = false;
+      $('modalConfirm').textContent = 'Scrub it';
+      closeModal();
+      await scan();
+    }
+  }
+
+  $('scan').addEventListener('click', scan);
+  $('clean').addEventListener('click', openConfirm);
+  $('modalCancel').addEventListener('click', closeModal);
+  $('modalConfirm').addEventListener('click', clean);
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+  $('clearLog').addEventListener('click', () => { $('log').textContent = ''; });
+  $('addRepo').addEventListener('click', async () => {
+    const input = $('repoInput');
+    const path = input.value.trim().replace(/^"|"$/g, '');
+    if (!path) return;
+    try { await invoke('add_rush_repo', { path }); input.value = ''; log(`added repo ${path}`); await scan(); }
+    catch (e) { log('add repo failed: ' + e); }
+  });
+  $('toggleAll').addEventListener('click', () => {
+    const boxes = state.targets.filter(t => t.available);
+    const allOn = boxes.every(t => t.checked) && state.rushRepos.every(r => r.checked);
+    state.targets.forEach(t => { if (t.available) t.checked = !allOn; });
+    state.rushRepos.forEach(r => r.checked = !allOn);
+    renderRows(); updateCleanButton(); renderGauge();
+  });
+
+  scan(); // auto-scan on launch
+</script>
+</body>
+</html>

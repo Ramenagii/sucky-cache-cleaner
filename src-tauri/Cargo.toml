@@ -1,0 +1,18 @@
+[package]
+name = "sucky-cache-cleaner"
+version = "0.1.0"
+edition = "2021"
+description = "Sucky — one-button cache cleaner for Rush.js monorepos and common dev caches"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+fs2 = "0.4"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
