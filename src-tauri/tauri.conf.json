@@ -7,14 +7,16 @@
     "frontendDist": "../src"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Sucky — Cache Cleaner",
-        "width": 1180,
-        "height": 860,
-        "minWidth": 900,
-        "minHeight": 640,
-        "resizable": true
+        "width": 1280,
+        "height": 920,
+        "minWidth": 1040,
+        "minHeight": 720,
+        "resizable": true,
+        "backgroundColor": "#EDEDE7"
       }
     ],
     "security": {

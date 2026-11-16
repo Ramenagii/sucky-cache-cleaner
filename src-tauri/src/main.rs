@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tauri::Emitter;
 use walkdir::WalkDir;
 
 // Config lives in the same place the egui-era app used, so existing repos carry over.
@@ -41,9 +43,24 @@ fn save_config(cfg: &Config) {
     }
 }
 
+fn command(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
+fn emit_job(app: &tauri::AppHandle, id: &str, label: &str) {
+    let _ = app.emit("job-progress", json!({ "id": id, "label": label }));
+}
+
 fn tool_on_path(tool: &str) -> bool {
     let finder = if cfg!(windows) { "where" } else { "which" };
-    Command::new(finder)
+    command(finder)
         .arg(tool)
         .output()
         .map(|o| o.status.success())
@@ -51,7 +68,7 @@ fn tool_on_path(tool: &str) -> bool {
 }
 
 fn tool_output(tool: &str, args: &[&str], cwd: Option<&Path>) -> Option<String> {
-    let mut cmd = Command::new(tool);
+    let mut cmd = command(tool);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -130,6 +147,7 @@ const BASE_TARGETS: &[(TargetKind, &str, bool)] = &[
 ];
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct TargetInfo {
     id: String,
     label: String,
@@ -217,6 +235,7 @@ fn resolve_base_target(kind: TargetKind) -> (Option<PathBuf>, bool, String) {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RushInfo {
     path: String,
     checked: bool,
@@ -226,6 +245,7 @@ struct RushInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ScanResult {
     targets: Vec<TargetInfo>,
     rush_repos: Vec<RushInfo>,
@@ -246,16 +266,18 @@ fn drive_stats() -> (Option<u64>, Option<u64>) {
 }
 
 #[tauri::command]
-fn scan_targets() -> ScanResult {
+fn scan_targets(app: tauri::AppHandle) -> ScanResult {
     let mut targets = Vec::new();
     for (kind, label, default_checked) in BASE_TARGETS {
+        let id = format!("{kind:?}");
+        emit_job(&app, &id, &format!("Sniffing {label}…"));
         let (path, available, note) = resolve_base_target(*kind);
         let (bytes, files) = match &path {
             Some(p) if p.exists() => scan_dir(p),
             _ => (0, 0),
         };
         targets.push(TargetInfo {
-            id: format!("{kind:?}"),
+            id,
             label: label.to_string(),
             path: path.as_ref().map(|p| p.display().to_string()),
             available,
@@ -270,6 +292,7 @@ fn scan_targets() -> ScanResult {
         .rush_repos
         .iter()
         .map(|repo| {
+            emit_job(&app, &format!("rush:{repo}"), "Sniffing Rush repo…");
             let temp = PathBuf::from(repo).join("common").join("temp");
             let exists = temp.exists();
             let (bytes, files) = if exists { scan_dir(&temp) } else { (0, 0) };
@@ -291,7 +314,7 @@ fn clean_base_target(kind: TargetKind, path: &Option<PathBuf>, lines: &mut Vec<S
         TargetKind::Pip => {
             if cfg!(windows) {
                 if tool_on_path("python") {
-                    if let Ok(o) = Command::new("python").args(["-m", "pip", "cache", "purge"]).output() {
+                    if let Ok(o) = command("python").args(["-m", "pip", "cache", "purge"]).output() {
                         if o.status.success() {
                             lines.push("  pip cache purged".into());
                             return (0, 0);
@@ -306,7 +329,7 @@ fn clean_base_target(kind: TargetKind, path: &Option<PathBuf>, lines: &mut Vec<S
             }
         }
         TargetKind::Pnpm => {
-            if let Ok(o) = Command::new("pnpm").args(["store", "prune"]).output() {
+            if let Ok(o) = command("pnpm").args(["store", "prune"]).output() {
                 if o.status.success() {
                     lines.push("  pnpm store pruned".into());
                     return (0, 0);
@@ -319,7 +342,7 @@ fn clean_base_target(kind: TargetKind, path: &Option<PathBuf>, lines: &mut Vec<S
             }
         }
         TargetKind::Yarn => {
-            if let Ok(o) = Command::new("yarn").args(["cache", "clean"]).output() {
+            if let Ok(o) = command("yarn").args(["cache", "clean"]).output() {
                 if o.status.success() {
                     lines.push("  yarn cache cleaned".into());
                     return (0, 0);
@@ -339,13 +362,14 @@ fn clean_base_target(kind: TargetKind, path: &Option<PathBuf>, lines: &mut Vec<S
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CleanResult {
     lines: Vec<String>,
     total_freed: u64,
 }
 
 #[tauri::command]
-fn clean_targets(target_ids: Vec<String>, rush_repos: Vec<String>) -> Result<CleanResult, String> {
+fn clean_targets(app: tauri::AppHandle, target_ids: Vec<String>, rush_repos: Vec<String>) -> Result<CleanResult, String> {
     let mut lines = Vec::new();
     let mut total_freed = 0u64;
 
@@ -364,18 +388,32 @@ fn clean_targets(target_ids: Vec<String>, rush_repos: Vec<String>) -> Result<Cle
             lines.push(format!("  ? {id} unavailable, skipped"));
             continue;
         }
-        lines.push(format!("cleaning {id}..."));
+        let label = BASE_TARGETS
+            .iter()
+            .find(|(k, _, _)| k == kind)
+            .map(|(_, l, _)| *l)
+            .unwrap_or(id.as_str());
+        emit_job(&app, id, &format!("Scrubbing {label}…"));
+        lines.push(format!("cleaning {label}..."));
         let (freed, errors) = clean_base_target(*kind, &path, &mut lines);
         total_freed += freed;
-        lines.push(format!("  freed {}, {errors} error(s)", format_size(freed)));
+        // pip, pnpm, and yarn report success without a byte count. The window
+        // measures what's gone by sniffing again, so don't claim "freed 0".
+        let tool = matches!(kind, TargetKind::Pip | TargetKind::Pnpm | TargetKind::Yarn);
+        if tool && errors == 0 {
+            lines.push("  done".into());
+        } else {
+            lines.push(format!("  freed {}, {errors} error(s)", format_size(freed)));
+        }
     }
 
     for repo in &rush_repos {
+        emit_job(&app, &format!("rush:{repo}"), "Scrubbing Rush repo…");
         lines.push(format!("rush purge in {repo}..."));
         let temp = PathBuf::from(repo).join("common").join("temp");
         let size_hint = if temp.exists() { scan_dir(&temp).0 } else { 0 };
         if tool_on_path("rush") {
-            match Command::new("rush").arg("purge").current_dir(repo).output() {
+            match command("rush").arg("purge").current_dir(repo).output() {
                 Ok(o) if o.status.success() => {
                     total_freed += size_hint;
                     lines.push("  rush purge ok".into());

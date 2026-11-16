@@ -1,35 +1,85 @@
+"""App icons for Sucky — spotted pleco in an ember apron, on warm paper."""
+import os
 from PIL import Image, ImageDraw
-import math
+
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src-tauri", "icons")
+
+
+def sc(v, s):
+    return int(round(v * s))
+
 
 def draw_icon(size):
     s = size / 512.0
-    img = Image.new("RGBA", (size, size), (238, 244, 236, 255))
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # soft radial backdrop circle
-    d.ellipse([int(24*s), int(24*s), int(488*s), int(488*s)], fill=(250, 252, 248, 255), outline=(220, 231, 216, 255), width=max(2, int(6*s)))
-    # tail
-    d.polygon([(int(60*s), int(256*s)), (int(150*s), int(190*s)), (int(150*s), int(322*s))], fill=(143, 203, 159, 255))
-    # body
-    d.ellipse([int(118*s), int(148*s), int(420*s), int(364*s)], fill=(169, 212, 178, 255))
-    d.ellipse([int(150*s), int(262*s), int(360*s), int(370*s)], fill=(221, 238, 223, 255))
-    # eye
-    d.ellipse([int(300*s), int(196*s), int(356*s), int(252*s)], fill=(255, 255, 255, 255))
-    d.ellipse([int(318*s), int(212*s), int(352*s), int(244*s)], fill=(31, 58, 45, 255))
-    d.ellipse([int(328*s), int(216*s), int(336*s), int(226*s)], fill=(255, 255, 255, 255))
-    # smile
-    d.arc([int(272*s), int(240*s), int(356*s), int(310*s)], start=20, end=160, fill=(58, 127, 84, 255), width=max(2, int(10*s)))
+
+    d.ellipse([sc(8, s), sc(8, s), sc(504, s), sc(504, s)], fill=(237, 237, 231, 255))
+    # fins
+    d.polygon(
+        [(sc(78, s), sc(300, s)), (sc(168, s), sc(250, s)), (sc(176, s), sc(360, s))],
+        fill=(166, 124, 82, 255),
+    )
+    d.polygon(
+        [(sc(434, s), sc(300, s)), (sc(344, s), sc(250, s)), (sc(336, s), sc(360, s))],
+        fill=(166, 124, 82, 255),
+    )
+    # dorsal
+    d.polygon(
+        [(sc(220, s), sc(118, s)), (sc(256, s), sc(48, s)), (sc(292, s), sc(118, s))],
+        fill=(140, 98, 64, 255),
+    )
+    # body + belly
+    d.ellipse([sc(108, s), sc(108, s), sc(404, s), sc(420, s)], fill=(196, 149, 106, 255))
+    d.ellipse([sc(168, s), sc(220, s), sc(344, s), sc(340, s)], fill=(240, 210, 168, 255))
     # spots
-    for cx, cy, r in [(215, 200, 13), (255, 175, 11), (185, 245, 11)]:
-        d.ellipse([int((cx-r)*s), int((cy-r)*s), int((cx+r)*s), int((cy+r)*s)], fill=(109, 183, 132, 255))
+    for cx, cy, r in ((150, 210, 16), (256, 150, 13), (360, 214, 15), (132, 280, 11), (378, 286, 11)):
+        d.ellipse([sc(cx - r, s), sc(cy - r, s), sc(cx + r, s), sc(cy + r, s)], fill=(92, 58, 36, 255))
+    # apron, pocket, flame
+    d.rounded_rectangle([sc(168, s), sc(268, s), sc(344, s), sc(400, s)], radius=sc(28, s), fill=(194, 65, 12, 255))
+    d.rounded_rectangle([sc(220, s), sc(318, s), sc(292, s), sc(366, s)], radius=sc(12, s), fill=(154, 52, 18, 255))
+    d.polygon(
+        [
+            (sc(256, s), sc(286, s)),
+            (sc(242, s), sc(314, s)),
+            (sc(256, s), sc(304, s)),
+            (sc(272, s), sc(318, s)),
+            (sc(262, s), sc(292, s)),
+        ],
+        fill=(255, 194, 51, 255),
+    )
+    # eyes
+    d.ellipse([sc(156, s), sc(168, s), sc(236, s), sc(258, s)], fill=(255, 255, 255, 255))
+    d.ellipse([sc(276, s), sc(168, s), sc(356, s), sc(258, s)], fill=(255, 255, 255, 255))
+    d.ellipse([sc(188, s), sc(196, s), sc(226, s), sc(242, s)], fill=(20, 20, 20, 255))
+    d.ellipse([sc(308, s), sc(196, s), sc(346, s), sc(242, s)], fill=(20, 20, 20, 255))
+    d.ellipse([sc(208, s), sc(204, s), sc(218, s), sc(216, s)], fill=(255, 255, 255, 255))
+    d.ellipse([sc(328, s), sc(204, s), sc(338, s), sc(216, s)], fill=(255, 255, 255, 255))
+    # smile
+    d.arc(
+        [sc(214, s), sc(228, s), sc(298, s), sc(292, s)],
+        start=20,
+        end=160,
+        fill=(20, 20, 20, 255),
+        width=max(2, sc(10, s)),
+    )
     return img
 
-for size, name in [(32, "icons/32x32.png"), (128, "icons/128x128.png"), (256, "icons/128x128@2x.png")]:
-    img = draw_icon(512 if size == 256 else size)
-    if img.size[0] != size:
-        img = img.resize((size, size), Image.LANCZOS)
-    img.save("src-tauri/" + name)
 
-# .ico with multiple sizes
-base = draw_icon(512)
-base.save("src-tauri/icons/icon.ico", sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
-print("icons written")
+def main():
+    os.makedirs(ROOT, exist_ok=True)
+    for size, name in ((32, "32x32.png"), (128, "128x128.png"), (256, "128x128@2x.png")):
+        img = draw_icon(512 if size == 256 else max(size, 128))
+        if img.size[0] != size:
+            img = img.resize((size, size), Image.LANCZOS)
+        img.save(os.path.join(ROOT, name))
+    base = draw_icon(512)
+    base.save(
+        os.path.join(ROOT, "icon.ico"),
+        sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+    )
+    print("icons written to", ROOT)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none">
+  <ellipse cx="160" cy="222" rx="92" ry="6" fill="#141414" opacity="0.08"/>
+
+  <!-- one tail, wide where it leaves the body, two equal rounded lobes -->
+  <path d="M130 106C98 100 70 98 52 108 40 116 42 128 58 128 80 128 92 122 98 128 76 136 46 144 44 156 56 166 80 154 98 144 112 138 124 142 132 150 134 128 134 114 130 106Z" fill="#A67C52"/>
+  <path d="M150 84C162 50 202 48 214 82 190 72 168 74 150 84Z" fill="#8C6240"/>
+
+  <path d="M118 118C114 80 166 66 216 72 254 76 282 100 278 128 274 156 240 174 194 178 146 182 116 164 112 142 108 128 112 120 118 118Z" fill="#C4956A"/>
+  <path d="M156 152C192 168 232 162 254 146 222 158 186 164 156 152Z" fill="#E8C9A4"/>
+
+  <ellipse cx="140" cy="116" rx="10" ry="7" fill="#5C3A24"/>
+  <ellipse cx="168" cy="102" rx="7" ry="5" fill="#5C3A24"/>
+  <ellipse cx="146" cy="140" rx="5.5" ry="4" fill="#6B4423"/>
+
+  <!-- bib inset on the belly, under the smile -->
+  <path d="M196 146h50c5 0 8 4 6 10l-5 12c-12 6-38 6-50 0l-4-12c-2-6 1-10 3-10Z" fill="#C2410C"/>
+  <rect x="210" y="156" width="24" height="10" rx="3" fill="#9A3412"/>
+  <path class="flame" d="M214 136c-5 6-4 11 0 15 1-3 3-3 4 0 2-4 5-6 3-12-2-2-5-4-7-3Z" fill="#FFC233"/>
+  <path class="flame" d="M215 144c-1 2 0 4 1 5 1-2 2-2 2-3 0-1-2-2-3-2Z" fill="#FF9E00"/>
+
+  <!-- blunt scrub head, hanging clear of the bib -->
+  <g transform="translate(150,166) rotate(48)">
+    <g class="brush-swing">
+      <rect x="0" y="-5" width="34" height="10" rx="5" fill="#8C6240"/>
+      <rect x="26" y="-8" width="14" height="16" rx="3" fill="#C2410C"/>
+      <rect x="38" y="-11" width="26" height="22" rx="8" fill="#F4E4C8"/>
+      <g class="suds">
+        <circle cx="60" cy="-4" r="6" fill="#FFFFFF"/>
+        <circle cx="54" cy="6" r="4" fill="#FFFFFF"/>
+        <circle cx="66" cy="5" r="3" fill="#FFFFFF"/>
+      </g>
+    </g>
+  </g>
+  <path d="M132 150c-16 6-14 26 8 28 20-2 30-14 24-26-10 1-20 0-32-2Z" fill="#A67C52"/>
+
+  <g class="blush fx" opacity="0">
+    <ellipse cx="248" cy="122" rx="7" ry="4.5" fill="#E8896A"/>
+  </g>
+
+  <g class="eye">
+    <ellipse class="eye-white" cx="228" cy="102" rx="13" ry="14" fill="#FFFFFF"/>
+    <g class="iris">
+      <ellipse class="pupil" cx="232" cy="104" rx="6" ry="6.5" fill="#141414"/>
+      <ellipse class="glint" cx="234" cy="100" rx="2.2" ry="2.2" fill="#FFFFFF"/>
+    </g>
+    <path class="lid fx" opacity="0" d="M215 102c5 10 22 10 26 0" stroke="#141414" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+  <path class="brow fx" opacity="0" d="M214 82c7-6 20-5 28 2" stroke="#141414" stroke-width="3.5" stroke-linecap="round"/>
+
+  <path class="mouth mouth-idle" d="M212 124c7 10 24 10 32 0" stroke="#141414" stroke-width="4" stroke-linecap="round"/>
+  <path class="mouth mouth-happy" opacity="0" d="M208 122c8 12 32 12 40 0" stroke="#141414" stroke-width="4" stroke-linecap="round"/>
+  <path class="mouth mouth-worry" opacity="0" d="M214 134c6-6 22-6 28 0" stroke="#141414" stroke-width="4" stroke-linecap="round"/>
+  <ellipse class="mouth mouth-scan" opacity="0" cx="228" cy="130" rx="5" ry="4" fill="#141414"/>
+
+  <path d="M244 124c12 3 20 8 26 16" stroke="#5C3A24" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M242 130c10 5 16 12 20 20" stroke="#5C3A24" stroke-width="2.5" stroke-linecap="round"/>
+
+  <g class="bubbles fx" opacity="0">
+    <circle cx="286" cy="40" r="5" fill="#FFFFFF"/>
+    <circle cx="304" cy="20" r="9" fill="#FFFFFF"/>
+    <circle cx="270" cy="20" r="3.5" fill="#FFC233"/>
+  </g>
+  <path class="sweat fx" opacity="0" d="M268 60c5 6 5 12 0 16-5-3-5-10 0-16Z" fill="#FFFFFF" stroke="#E0E0DA" stroke-width="2"/>
+  <g class="sparkles fx" opacity="0" fill="#FFC233">
+    <path d="M36 34l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z"/>
+    <path d="M300 70l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/>
+  </g>
+</svg>

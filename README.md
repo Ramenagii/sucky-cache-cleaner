@@ -1,6 +1,8 @@
 # Sucky — Cache Cleaner
 
-Standalone Windows desktop app (Rust + egui). Finds common dev caches and gives you one button to purge them, including `rush purge` for Rush.js monorepos.
+Windows desktop app. Finds common dev caches and lets you scrub the ones you pick, including Rush repos.
+
+**[Install for Windows](https://ramenagii.github.io/sucky-cache-cleaner/)** — or download the setup file from [Releases](https://github.com/Ramenagii/sucky-cache-cleaner/releases/latest).
 
 ## Targets
 

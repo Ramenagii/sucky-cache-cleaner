@@ -3,464 +3,2033 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#EDEDE7">
 <title>Sucky — Cache Cleaner</title>
+<link rel="icon" href="assets/mark.svg">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
-  /* ---------- Design tokens: soft green ---------- */
-  @font-face {
-    font-family: "Fredoka";
-    src: url("fredoka-variable.ttf") format("truetype");
-    font-weight: 300 700;
-    font-display: swap;
-  }
   :root {
-    --bg:          #EEF4EC;
-    --bg-2:        #E4EEE1;
-    --surface:     #FAFCF8;
-    --line:        #DCE7D8;
-    --ink:         #1F3A2D;
-    --ink-soft:    #5E7A6A;
-    --ink-faint:   #8FA697;
-
-    --green-50:    #F1F8F2;
-    --green-100:   #DDEEDF;
-    --green-300:   #A9D4B2;
-    --green-500:   #6DB784;
-    --green-600:   #4F9B69;
-    --green-700:   #3A7F54;
-
-    --warn-bg:     #FFF4DC;
-    --warn-ink:    #9A6A12;
-    --danger:      #D9694A;
-
-    --radius-lg:   22px;
-    --radius-md:   14px;
-    --shadow:      0 1px 2px rgba(31,58,45,.05), 0 8px 24px rgba(31,58,45,.07);
-    --font: "Fredoka", "Nunito", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --paper: #EDEDE7;
+    --panel: #FFFFFF;
+    --ink: #141414;
+    --text: #3A3A35;
+    --muted: #605F58;
+    --flame: #FF9E00;
+    --flame-yellow: #FFC233;
+    --ember: #C2410C;
+    --ember-dark: #9A3412;
+    --leaf: #2FA84F;
+    --red: #D64533;
+    --hairline: #E0E0DA;
+    --wash: #FFF6EA;
+    --shadow: 0 6px 24px rgba(20, 20, 20, 0.10);
+    --display: "Baloo 2", Anybody, Quicksand, "Trebuchet MS", sans-serif;
+    --body: "Nunito Sans", Quicksand, "Segoe UI", sans-serif;
     --mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
   }
-
-  * { box-sizing: border-box; margin: 0; }
-  html, body { height: 100%; }
+  @property --pct {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0;
+  }
+  * { box-sizing: border-box; }
   body {
-    font-family: var(--font);
-    color: var(--ink);
+    margin: 0;
+    min-height: 100vh;
+    padding-bottom: 60px;
+    font-family: var(--body);
+    font-size: 15px;
+    color: var(--text);
     background:
-      radial-gradient(900px 400px at 85% -10%, #DCEFDD 0%, transparent 60%),
-      radial-gradient(700px 400px at -10% 30%, #E6F2E3 0%, transparent 60%),
-      var(--bg);
-    display: flex; flex-direction: column;
+      radial-gradient(880px 460px at 112% -12%, rgba(255, 158, 0, 0.18), transparent 58%),
+      radial-gradient(640px 480px at -18% 8%, rgba(194, 65, 12, 0.07), transparent 52%),
+      var(--paper);
+    background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     user-select: none;
   }
+  ::selection { background: #FFD27A; color: var(--ink); }
+  button, input { font: inherit; color: inherit; }
 
-  /* ---------- Top bar ---------- */
+  .scrub-bar {
+    position: fixed; inset: 0 0 auto 0; height: 4px; z-index: 40;
+    pointer-events: none; opacity: 0; overflow: hidden;
+  }
+  body.busy .scrub-bar { opacity: 1; }
+  .scrub-bar i {
+    display: block; height: 100%; width: 32%;
+    background: linear-gradient(90deg, var(--flame-yellow), var(--ember));
+    border-radius: 99px;
+    animation: load 1.05s ease-in-out infinite;
+  }
+  body.scanning .scrub-bar i {
+    width: 100%;
+    transform-origin: left center;
+    animation: scanfill 3s linear forwards;
+  }
+  @keyframes load {
+    0% { transform: translateX(-130%); }
+    100% { transform: translateX(420%); }
+  }
+  @keyframes scanfill {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
   .topbar {
+    position: sticky; top: 0; z-index: 6;
     display: flex; align-items: center; gap: 12px;
     padding: 14px 28px;
-    background: rgba(250,252,248,.7);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--line);
+    background: rgba(237, 237, 231, 0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--hairline);
   }
-  .brand-mark { width: 42px; height: 42px; flex: none; }
-  .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: .2px; line-height: 1.1; }
-  .brand p  { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+  .brand-mark { width: 46px; height: 46px; flex: none; }
+  .brand h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 26px;
+    letter-spacing: -0.4px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .brand p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .topbar .meta { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); }
 
-  /* ---------- Layout ---------- */
   main {
-    flex: 1; overflow: auto;
-    width: min(1180px, 100%); margin: 0 auto;
-    padding: 28px 28px 12px;
-    display: grid; gap: 24px;
+    width: min(1120px, 100%);
+    margin: 0 auto;
+    padding: 40px 40px 32px;
+    display: grid;
+    gap: 36px;
     align-content: start;
   }
+
   .hero {
-    display: grid; grid-template-columns: 1fr minmax(340px, 480px);
-    gap: 28px; align-items: center;
+    display: grid;
+    grid-template-columns: minmax(280px, 0.85fr) minmax(520px, 1.2fr);
+    gap: 48px;
+    align-items: center;
   }
-  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
-
   .hero h2 {
-    font-size: clamp(34px, 4.4vw, 52px);
-    line-height: 1.05; font-weight: 700; letter-spacing: -.5px;
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(34px, 4vw, 44px);
+    line-height: 1.02;
+    letter-spacing: -0.7px;
+    color: var(--ink);
   }
-  .hero h2 span { color: var(--green-600); }
-  .hero p { margin-top: 12px; color: var(--ink-soft); font-size: 15px; line-height: 1.55; max-width: 46ch; }
+  .hero h2 em { font-style: normal; color: var(--ember); }
+  .hero h2.tone-high em { color: var(--red); }
+  .hero h2.tone-mid em { color: var(--ember-dark); }
+  .warn {
+    margin: 14px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .hero .sub {
+    margin: 16px 0 0;
+    max-width: 36ch;
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
+  .sel-line {
+    margin: 12px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .sel-line b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint {
+    margin: 12px 0 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .hint kbd {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 1.5px 0 var(--hairline);
+  }
+  .hint em { font-style: normal; margin-right: 6px; }
 
-  .actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .result {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--leaf);
+    display: none;
+  }
+  .result.show { display: block; }
+  .result-head {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--ink);
+    margin: 0;
+  }
+  .result-sub { margin: 4px 0 0; font-size: 13px; color: var(--text); }
+  .result details { margin-top: 8px; }
+  .result summary {
+    cursor: pointer;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ember);
+  }
+  .result ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .result li {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .result li b { font-family: var(--display); font-weight: 800; color: var(--ink); }
+  .result li span { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700; }
+
   .btn {
-    font: inherit; font-weight: 600; font-size: 15px;
-    padding: 12px 22px; border-radius: 999px; border: 1.5px solid transparent;
-    cursor: pointer; transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 17px;
+    line-height: 1;
+    padding: 13px 22px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
   }
-  .btn:active { transform: translateY(1px) scale(.99); }
-  .btn:focus-visible { outline: 3px solid var(--green-300); outline-offset: 2px; }
-  .btn-ghost { background: var(--surface); color: var(--green-700); border-color: var(--green-300); }
-  .btn-ghost:hover { background: var(--green-50); }
-  .btn-primary {
-    background: linear-gradient(180deg, var(--green-500), var(--green-600));
-    color: #fff; box-shadow: 0 6px 16px rgba(79,155,105,.35);
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn:focus-visible { outline: 3px solid var(--flame); outline-offset: 2px; }
+  .btn:disabled {
+    background: var(--hairline) !important;
+    color: var(--muted) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+    transform: none;
   }
-  .btn-primary:hover { box-shadow: 0 8px 22px rgba(79,155,105,.45); transform: translateY(-1px); }
-  .btn-primary:disabled { background: var(--green-100); color: var(--ink-faint); box-shadow: none; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--ember); color: #fff; }
+  .btn-primary:hover { background: var(--ember-dark); }
+  .btn-secondary {
+    background: var(--panel);
+    color: var(--ink);
+    border-color: var(--hairline);
+    box-shadow: var(--shadow);
+  }
+  .btn-secondary:hover { border-color: #C8C8C0; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #B83828; }
+  .btn-sm { font-size: 14px; padding: 9px 16px; }
+  .btn-text {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    background: none;
+    border: 0;
+    color: var(--ink);
+    cursor: pointer;
+    padding: 4px 2px;
+  }
+  .btn-text:hover { color: var(--ember); }
 
-  /* ---------- Tank status card ---------- */
+  .stage {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 18px 28px;
+    align-items: end;
+  }
+  .buddy { display: contents; }
+  .speech { grid-column: 1 / -1; }
+  .mascot { grid-column: 1; grid-row: 2; }
+  .tank { grid-column: 2; grid-row: 2; }
+  .speech {
+    margin: 0;
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.35;
+    padding: 14px 16px;
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .speech.pop { animation: pop .28s ease; }
+  .speech::after {
+    content: "";
+    position: absolute;
+    left: 26px;
+    bottom: -7px;
+    border-width: 8px 8px 0;
+    border-style: solid;
+    border-color: #fff transparent transparent;
+  }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+  .mascot { cursor: pointer; border-radius: 28px; }
+  .mascot:focus-visible { outline: 3px solid var(--flame); outline-offset: 3px; }
+  .mascot svg { width: 100%; height: auto; display: block; transform-origin: 50% 86%; animation: bob 3.4s ease-in-out infinite; }
+  body.busy .mascot svg { animation-duration: 1s; }
+  .mascot.boop svg { animation: boop .42s ease; }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+    50% { transform: translateY(-7px) rotate(1.5deg); }
+  }
+  @keyframes boop {
+    35% { transform: scale(1.07, .93); }
+    70% { transform: scale(.97, 1.05); }
+  }
+  #mascot .flame { transform-box: fill-box; transform-origin: center; animation: flicker 1.25s ease-in-out infinite; }
+  #mascot .brush-swing { transform-box: fill-box; transform-origin: left center; animation: scrub 1.15s ease-in-out infinite; }
+  body.busy #mascot .brush-swing { animation-duration: .42s; }
+  body.scanning #mascot .brush-swing { animation-duration: 3s; }
+  #mascot .suds circle { transform-box: fill-box; animation: rise 2s ease-in infinite; }
+  #mascot .suds circle:nth-child(2) { animation-delay: .3s; }
+  #mascot .suds circle:nth-child(3) { animation-delay: .6s; }
+  @keyframes scrub { 50% { transform: rotate(16deg); } }
+  @keyframes flicker {
+    50% { transform: scale(1.14) rotate(4deg); }
+  }
+  #mascot .bubbles circle { transform-box: fill-box; animation: rise 1.7s ease-in infinite; }
+  #mascot .bubbles circle:nth-child(2) { animation-delay: .25s; }
+  #mascot .bubbles circle:nth-child(3) { animation-delay: .5s; }
+  @keyframes rise {
+    from { transform: translateY(6px); opacity: .25; }
+    to { transform: translateY(-12px); opacity: 1; }
+  }
+  #mascot svg[data-mood="happy"] .mouth-idle,
+  #mascot svg[data-mood="worry"] .mouth-idle,
+  #mascot svg[data-mood="scan"] .mouth-idle { opacity: 0; }
+  #mascot svg[data-mood="happy"] .mouth-happy,
+  #mascot svg[data-mood="worry"] .mouth-worry,
+  #mascot svg[data-mood="scan"] .mouth-scan { opacity: 1; }
+  #mascot svg[data-mood="happy"] .eye-white,
+  #mascot svg[data-mood="happy"] .iris { opacity: 0; }
+  #mascot svg[data-mood="happy"] .lid,
+  #mascot svg[data-mood="happy"] .sparkles,
+  #mascot svg[data-mood="happy"] .blush { opacity: 1; }
+  #mascot svg[data-mood="scan"] .bubbles { opacity: 1; }
+  #mascot svg[data-mood="worry"] .sweat,
+  #mascot svg[data-mood="worry"] .brow { opacity: 1; }
+  #mascot svg.blink .eye { transform-box: fill-box; transform-origin: center; transform: scaleY(.12); }
+
   .tank {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow);
-    padding: 22px 24px;
-    display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center;
+    background: var(--panel);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px 20px;
+    transition: transform .2s ease;
   }
+  .tank:hover { transform: translateY(-2px); }
+  .tank-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .pill {
+    letter-spacing: 0;
+    text-transform: none;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    background: #FDE8E4;
+    color: var(--red);
+  }
+  .pill.mid { background: #FFF1D6; color: var(--ember-dark); }
+  .pill.ok { background: #E5F6EA; color: #1F7A38; }
+  .tank-note {
+    margin: 14px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .tank-body { display: grid; gap: 18px; }
   .gauge {
-    --pct: 99;
-    width: 112px; height: 112px; border-radius: 50%;
+    --pct: 0;
+    --gauge: var(--ink);
+    width: 104px; height: 104px;
+    border-radius: 50%;
+    position: relative;
+    cursor: pointer;
     background:
-      radial-gradient(closest-side, var(--surface) 76%, transparent 78% 100%),
-      conic-gradient(var(--gauge-color, var(--danger)) calc(var(--pct) * 1%), var(--green-100) 0);
-    display: grid; place-items: center; position: relative;
-    transition: background .8s ease;
+      radial-gradient(closest-side, #fff 72%, transparent 74%),
+      conic-gradient(var(--gauge) calc(var(--pct) * 1%), var(--hairline) 0);
+    display: grid;
+    place-items: center;
+    transition: --pct .6s ease;
   }
-  .gauge b { font-size: 28px; line-height: 1; }
+  .gauge b {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 26px;
+    color: var(--ink);
+    line-height: 1;
+    margin-top: 8px;
+  }
   .gauge small {
-    position: absolute; bottom: 26px; font-size: 10px; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+    position: absolute;
+    bottom: 26px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
-  .tank-head { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 10px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .stat { background: var(--green-50); border-radius: var(--radius-md); padding: 10px 12px; }
-  .stat span { display: block; font-size: 11px; color: var(--ink-soft); font-weight: 500; }
-  .stat strong { font-size: 18px; color: var(--green-700); font-variant-numeric: tabular-nums; }
-  .bar { height: 8px; border-radius: 99px; background: var(--green-100); margin-top: 12px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--green-300), var(--green-500)); transition: width .5s ease; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .stat { display: grid; gap: 4px; }
+  .stat span {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .stat strong {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--ink);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.hot strong { color: var(--ember); }
+  .bar { height: 8px; margin-top: 18px; border-radius: 99px; background: var(--hairline); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--ember); transition: width .45s ease; }
+  .streak { display: flex; align-items: center; gap: 8px; margin-top: 16px; cursor: help; }
+  .streak i { width: 10px; height: 10px; border-radius: 50%; background: var(--hairline); }
+  .streak i.on { background: var(--leaf); }
+  .streak span { margin-left: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
 
-  /* ---------- Cache list ---------- */
   .panel {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow);
-    padding: 8px 12px 12px;
+    background: var(--panel);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    padding: 14px 18px 20px;
   }
   .panel-head {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 14px 8px;
-    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 14px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
-  .panel-head button { font: inherit; font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--green-700); background: none; border: 0; cursor: pointer; font-weight: 600; }
-  .panel-head button:hover { text-decoration: underline; }
+
+  .suggest {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    grid-template-areas: "dot ev" "dot why";
+    column-gap: 14px;
+    row-gap: 4px;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 18px;
+    padding: 16px 14px;
+    cursor: pointer;
+  }
+  .suggest:hover { background: var(--wash); }
+  .suggest.is-on { background: #FFF1D6; }
+  .suggest:focus-visible { outline: 3px solid var(--flame); outline-offset: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--hairline); }
+  .suggest .dot { grid-area: dot; align-self: center; }
+  .row .dot { justify-self: end; }
+  .dot.scrub { background: var(--flame); box-shadow: 0 0 0 4px rgba(255, 158, 0, 0.18); }
+  .dot.look { background: transparent; box-shadow: inset 0 0 0 2px var(--flame); }
+  .dot.leave { background: var(--leaf); }
+  .ev { grid-area: ev; font-weight: 700; color: var(--ink); }
+  .why { grid-area: why; font-size: 14px; color: var(--text); }
+  .tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 99px;
+    background: #FFF1D6;
+    color: var(--ember);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .tag.safe { background: #E5F6EA; color: #1F7A38; }
 
   .row {
-    display: grid; grid-template-columns: 28px 1fr auto auto; gap: 14px; align-items: center;
-    padding: 14px; border-radius: var(--radius-md);
-    transition: background .15s ease; cursor: pointer;
+    display: grid;
+    grid-template-columns: 28px 40px minmax(0, 1fr) auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 14px;
+    border-radius: 16px;
+    cursor: pointer;
+    position: relative;
   }
-  .row + .row { margin-top: 2px; }
-  .row:hover { background: var(--green-50); }
-  .row.is-on { background: var(--green-50); }
-  .row.unavailable { opacity: .75; }
-
-  /* custom checkbox */
-  .check { appearance: none; width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--green-300); background: var(--surface); display: grid; place-items: center; cursor: pointer; transition: all .15s ease; }
-  .check::after { content: ""; width: 10px; height: 6px; border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(-45deg) scale(0); transition: transform .15s ease; margin-top: -2px; }
-  .check:checked { background: var(--green-600); border-color: var(--green-600); }
+  .row:hover { background: var(--wash); }
+  .row.is-on { background: #FFF1D6; }
+  .row.unavailable { opacity: 0.55; cursor: default; }
+  .row.is-scanning {
+    background-image: linear-gradient(90deg, transparent, rgba(255, 158, 0, 0.28), transparent);
+    background-size: 42% 100%;
+    background-repeat: no-repeat;
+    animation: sheen 1s linear infinite;
+  }
+  @keyframes sheen { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+  .row.flash { animation: flash .7s ease; }
+  @keyframes flash {
+    0% { box-shadow: inset 0 0 0 2px var(--flame); }
+    100% { box-shadow: inset 0 0 0 2px transparent; }
+  }
+  .check {
+    appearance: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2.5px solid #C8C8C0;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    margin: 0;
+  }
+  .check::after {
+    content: "";
+    width: 10px; height: 6px;
+    border-left: 2.5px solid #fff;
+    border-bottom: 2.5px solid #fff;
+    transform: rotate(-45deg) scale(0);
+    margin-top: -2px;
+  }
+  .check:checked { background: var(--ember); border-color: var(--ember); }
   .check:checked::after { transform: rotate(-45deg) scale(1); }
-  .check:focus-visible { outline: 3px solid var(--green-300); outline-offset: 2px; }
-  .check:disabled { border-color: var(--line); cursor: not-allowed; }
-
-  .row-title { font-weight: 600; font-size: 15px; }
-  .row-path  { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chip { font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--warn-bg); color: var(--warn-ink); white-space: nowrap; }
-  .size { min-width: 88px; text-align: right; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-
-  /* Rush repos section */
-  .rush-head { display: flex; gap: 8px; align-items: center; padding: 10px 14px 4px; }
-  .rush-head input {
-    flex: 1; font: 12px var(--mono); padding: 8px 12px; border-radius: var(--radius-md);
-    border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); outline: none;
+  .check:focus-visible { outline: 3px solid var(--flame); outline-offset: 2px; }
+  .check:disabled { cursor: not-allowed; background: var(--paper); border-color: var(--hairline); }
+  .row.unchosen { cursor: default; }
+  .ico { width: 40px; height: 40px; }
+  .row-title { font-weight: 700; color: var(--ink); }
+  .row-path {
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: text;
+    cursor: text;
   }
-  .rush-head input:focus { border-color: var(--green-300); }
-  .rush-head button { font: inherit; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 99px; border: 0; background: var(--green-100); color: var(--green-700); cursor: pointer; }
-  .rush-head button:hover { background: var(--green-300); }
-  .remove-rush { font: inherit; font-size: 13px; font-weight: 700; color: var(--ink-faint); background: none; border: 0; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
-  .remove-rush:hover { color: var(--danger); background: var(--warn-bg); }
+  .size { text-align: right; min-width: 88px; }
+  .size b {
+    display: block;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .size small { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .chip {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: var(--wash);
+    color: var(--ember-dark);
+  }
+  .remove-rush {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    border-radius: 99px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .remove-rush:hover { color: var(--red); background: #FDE8E4; }
 
-  /* ---------- Confirm modal ---------- */
+  .group-head {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px 14px;
+    background: none;
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .group-head:hover { color: var(--ink); }
+  .group-head .caret { transition: transform .18s ease; }
+  .group-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .group-head .count { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .fold {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .32s ease;
+  }
+  .fold.open { grid-template-rows: 1fr; }
+  .fold-inner { overflow: hidden; min-height: 0; }
+  .fold.open .fold-inner { animation: unfold .32s ease; }
+  @keyframes unfold {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .group-body .row { opacity: 0.78; }
+  .group-body .row:hover { opacity: 1; }
+
+  .rush-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 10px 8px 0;
+    padding: 14px 8px 2px;
+    border-top: 1px solid var(--hairline);
+  }
+  .rush-foot b { display: block; color: var(--ink); font-family: var(--display); font-weight: 800; }
+  .rush-foot span { color: var(--muted); font-size: 13px; font-weight: 700; }
+  .rush-add {
+    margin: 4px 6px 2px;
+    padding-top: 4px;
+  }
+  .rush-add > summary { display: none; }
+  .rush-add > summary {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 8px;
+    cursor: pointer;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--muted);
+    list-style: none;
+  }
+  .rush-add > summary::-webkit-details-marker { display: none; }
+  .rush-add > summary:hover,
+  .rush-add[open] > summary { color: var(--ink); }
+
+  .drop {
+    margin: 4px 6px 2px;
+    padding: 8px;
+    border-radius: 20px;
+    border: 2px dashed var(--hairline);
+  }
+  .drop.hot { border-color: var(--ember); background: var(--wash); }
+  .drop-copy {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .drop-copy p { margin: 0; }
+  .drop-copy img { width: 28px; height: 28px; }
+  .rush-head { display: flex; gap: 8px; padding: 6px 6px 0; }
+  .rush-head input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    border: 1.5px solid var(--hairline);
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    user-select: text;
+  }
+  .rush-head input::placeholder { color: #8A8981; opacity: 1; }
+  .rush-head input:focus { border-color: var(--flame); background: #fff; }
+  .empty { margin: 0; padding: 4px 14px 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
+
+  .log {
+    position: fixed; inset: auto 0 0 0; z-index: 7;
+    border-top: 1px solid var(--hairline);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -6px 20px rgba(20, 20, 20, 0.06);
+  }
+  .log-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 28px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .log-bar .caret { transition: transform .18s ease; }
+  .log.open .log-bar .caret { transform: rotate(90deg); }
+  .log-bar .btn-text,
+  .log-bar .btn { margin-left: auto; letter-spacing: 0; text-transform: none; }
+  .log-bar #clearLog { margin-left: 8px; }
+  .log-last {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+  }
+  .log.open .log-last { display: none; }
+  #log {
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
+    transition: grid-template-rows .32s ease;
+  }
+  .log.open #log { grid-template-rows: 1fr; }
+  #logInner { overflow: auto; max-height: 240px; min-height: 0; padding: 0 28px 12px; }
+  #resultToggle { margin-top: 8px; }
+  .log-line { font-family: var(--mono); font-size: 12px; color: var(--text); padding: 1px 0; user-select: text; }
+  .log-line.bad { color: var(--red); }
+  .log-line.good { color: #1F7A38; font-weight: 700; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 60px;
+    transform: translateX(-50%) translateY(12px);
+    background: var(--ink);
+    color: #fff;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    padding: 12px 18px;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(20, 20, 20, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 30;
+    max-width: min(520px, 90vw);
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(31,58,45,.35); backdrop-filter: blur(2px);
-    display: none; place-items: center; z-index: 10;
+    position: fixed; inset: 0;
+    background: rgba(20, 20, 20, 0.35);
+    display: none;
+    place-items: center;
+    z-index: 20;
+    padding: 24px;
   }
   .modal-backdrop.show { display: grid; animation: fade .15s ease; }
-  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   .modal {
-    background: var(--surface); border-radius: var(--radius-lg); box-shadow: 0 24px 60px rgba(31,58,45,.35);
-    padding: 24px 26px; width: min(480px, 90vw); border: 1px solid var(--line);
+    width: min(460px, 100%);
+    background: var(--panel);
+    border-radius: 28px;
+    box-shadow: 0 24px 60px rgba(20, 20, 20, 0.28);
+    padding: 22px 22px 18px;
   }
-  .modal h3 { font-size: 18px; letter-spacing: -.2px; }
-  .modal ul { margin: 12px 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; }
-  .modal ul li { margin: 3px 0; }
-  .modal-total { font-weight: 700; font-size: 15px; color: var(--green-700); margin-bottom: 6px; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
-  .btn-danger { background: var(--danger); color: #fff; }
+  .modal h3 {
+    margin: 0 0 6px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+  }
+  .modal-lead { margin: 0 0 12px; color: var(--text); }
+  .modal-list { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
+  .modal-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px;
+    border-radius: 14px;
+    background: var(--paper);
+  }
+  .modal-item img { width: 28px; height: 28px; flex: none; }
+  .modal-item > b { margin-left: auto; font-family: var(--display); font-weight: 800; white-space: nowrap; }
+  .modal-item b { display: block; color: var(--ink); font-size: 14px; }
+  .modal-item span { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .modal-total {
+    margin-top: 12px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--ink);
+  }
+  .modal-status {
+    min-height: 1.2em;
+    margin: 6px 0 0;
+    font-family: var(--display);
+    font-weight: 700;
+    color: var(--ember);
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 
-  /* ---------- Log ---------- */
-  .log { border-top: 1px solid var(--line); background: rgba(250,252,248,.8); }
-  .log-bar { display: flex; align-items: center; gap: 10px; padding: 6px 28px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
-  .log-bar button { font: inherit; font-size: 11px; font-weight: 600; background: var(--green-100); color: var(--green-700); border: 0; border-radius: 99px; padding: 3px 12px; cursor: pointer; }
-  .log pre { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); padding: 0 28px 12px; max-height: 84px; overflow: auto; }
-  .log pre em { color: var(--green-600); font-style: normal; }
+  .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 35; }
+  .confetti i {
+    position: absolute; top: -16px;
+    width: 10px; height: 14px;
+    border-radius: 3px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(105vh) rotate(280deg); opacity: .15; } }
+
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; gap: 28px; }
+    .stage { grid-template-columns: 180px minmax(0, 1fr); gap: 16px 20px; }
+    main { padding: 28px 20px 24px; gap: 28px; }
+    .topbar, .log-bar, #logInner { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
 </style>
 </head>
 <body>
+<div class="scrub-bar" aria-hidden="true"><i></i></div>
 
 <header class="topbar">
-  <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-    <path d="M6 32 L18 22 L18 42 Z" fill="#8FCB9F"/>
-    <ellipse cx="38" cy="32" rx="22" ry="19" fill="#A9D4B2"/>
-    <ellipse cx="38" cy="42" rx="14" ry="9" fill="#DDEEDF"/>
-    <circle cx="48" cy="27" r="6" fill="#fff"/><circle cx="49.5" cy="27" r="3" fill="#1F3A2D"/>
-    <path d="M44 40 q5 5 10 0" stroke="#3A7F54" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <circle cx="30" cy="24" r="1.6" fill="#6DB784"/><circle cx="35" cy="20" r="1.3" fill="#6DB784"/><circle cx="27" cy="31" r="1.4" fill="#6DB784"/>
-  </svg>
+  <img class="brand-mark" src="assets/mark.svg" alt="">
   <div class="brand">
     <h1>Sucky</h1>
-    <p>your cleanup buddy</p>
+    <p>cache cleaner</p>
   </div>
+  <button class="btn btn-secondary btn-sm" id="scan" type="button" title="Scan tank (S)">Scan tank</button>
 </header>
 
 <main>
   <section class="hero">
     <div>
-      <h2>A clean tank,<br><span>a clean disk.</span></h2>
-      <p>Sucky hunts dev caches, temp files and Rush debris. One scrub and it's gone.</p>
+      <h2 id="heroTitle">A clean tank, <em>a lighter disk.</em></h2>
+      <p class="sub" id="sub">Sucky scrubs dev caches, temp files, and Rush debris.</p>
       <div class="actions">
-        <button class="btn btn-ghost" id="scan">Scan my disk</button>
-        <button class="btn btn-primary" id="clean" disabled>Clean 0.0 GB</button>
+        <button class="btn btn-primary" id="clean" type="button" disabled>Clean</button>
+        <button class="btn btn-secondary" id="scanAgain" type="button" hidden>Scan again</button>
+        <button class="btn btn-secondary" id="markHero" type="button" data-action="mark" disabled hidden>Select suggested</button>
+      </div>
+      <p class="warn" id="warn" hidden>Permanently deletes 0 files. This cannot be undone.</p>
+      <p class="hint">
+        <em><kbd>S</kbd> scan</em>
+        <em><kbd>M</kbd> select suggested</em>
+        <em><kbd>Enter</kbd> clean</em>
+      </p>
+      <div class="result" id="result" role="status">
+        <p class="result-head" id="resultHead"></p>
+        <p class="result-sub" id="resultSub"></p>
+        <button class="btn-text" id="resultToggle" type="button" aria-expanded="false">View details</button>
+        <div class="fold" id="resultFold"><div class="fold-inner"><ul id="resultList"></ul></div></div>
       </div>
     </div>
 
-    <aside class="tank" aria-label="Tank status">
-      <div class="gauge" id="gauge" style="--pct:0">
-        <b id="gaugePct">—</b><small>Full</small>
+    <div class="stage">
+      <div class="buddy">
+        <p class="speech" id="speech" aria-live="polite">I scrub the junk.</p>
+        <div class="mascot" id="mascot" tabindex="0" role="button" aria-label="Sucky, the pleco"></div>
       </div>
-      <div>
-        <div class="tank-head">Tank status</div>
-        <div class="stats">
-          <div class="stat"><span>Drive free</span><strong id="free">—</strong></div>
-          <div class="stat"><span>Suggested clean</span><strong id="sugg">—</strong></div>
-          <div class="stat"><span>Junk found</span><strong id="junk">—</strong></div>
+      <aside class="tank" aria-label="Tank status">
+        <div class="tank-head">
+          <span>Tank status</span>
+          <span class="pill" id="tankPill" hidden>Almost full</span>
         </div>
-        <div class="bar"><i id="bar"></i></div>
-      </div>
-    </aside>
+        <div class="tank-body">
+          <div class="gauge" id="gauge" title="How full this disk is">
+            <b id="gaugePct">—</b>
+            <small>used</small>
+          </div>
+          <div class="stats">
+            <div class="stat"><span>Free</span><strong id="free">—</strong></div>
+            <div class="stat hot"><span>Cleanable</span><strong id="sugg">—</strong></div>
+            <div class="stat"><span>Selected</span><strong id="junk">—</strong></div>
+          </div>
+        </div>
+        <p class="tank-note" id="tankNote" hidden></p>
+        <div class="streak" id="streak" aria-label="Scrub streak"></div>
+      </aside>
+    </div>
   </section>
 
   <section class="panel" aria-label="Caches">
     <div class="panel-head">
-      <span>Caches</span>
-      <button id="toggleAll" type="button">Select all</button>
+      <span>Caches <small id="cacheHint" style="display:block;margin-top:4px;letter-spacing:0;text-transform:none;font-family:var(--body);font-size:13px;font-weight:700;">Largest first. Empty ones are tucked away below.</small></span>
+      <button class="btn btn-secondary btn-sm" id="toggleAll" type="button">Select all with files</button>
     </div>
     <div id="rows"></div>
-    <div class="rush-head">
-      <input id="repoInput" placeholder="C:\path\to\rush-repo (contains rush.json)" spellcheck="false">
-      <button id="addRepo" type="button">Add Rush repo</button>
-    </div>
     <div id="rushRows"></div>
+    <div class="rush-foot">
+      <div>
+        <b>Rush monorepos</b>
+        <span id="rushStatus">None added yet.</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="rushToggle" type="button">Add a Rush repo</button>
+    </div>
+    <div class="rush-add" id="rushAdd">
+      <div class="fold" id="rushFold">
+      <div class="fold-inner">
+      <div class="drop" id="drop">
+        <div class="drop-copy">
+          <img src="assets/icon-rush.svg" alt="">
+          <p>Drop a Rush repo here, or paste the folder that holds rush.json.</p>
+        </div>
+        <div class="rush-head">
+          <input id="repoInput" placeholder="D:\work\monorepo" spellcheck="false" aria-label="Rush repo folder">
+          <button class="btn btn-secondary btn-sm" id="addRepo" type="button">Add repo</button>
+        </div>
+      </div>
+      </div>
+      </div>
+    </div>
   </section>
 </main>
 
-<footer class="log">
-  <div class="log-bar">Log <button type="button" id="clearLog">Clear</button></div>
-  <pre id="log"><em>[ready]</em> Click Scan my disk to measure. Clean to purge.</pre>
+<footer class="log" id="logWrap">
+  <div class="log-bar" id="logBar">
+    <span class="log-last" id="logLast">Ready when you are.</span>
+    <button class="btn btn-secondary btn-sm" id="logToggle" type="button" aria-expanded="false" aria-controls="log">Show log</button>
+    <button class="btn-text" id="clearLog" type="button" hidden>Clear</button>
+  </div>
+  <div id="log"><div class="fold-inner" id="logInner"><div class="log-line">Ready when you are.</div></div></div>
 </footer>
 
-<!-- Confirm modal -->
-<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-label="Confirm clean">
+<div class="toast" id="toast" role="status"></div>
+
+<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal">
-    <h3>Scrub these? This can't be undone.</h3>
-    <ul id="modalList"></ul>
+    <h3 id="modalTitle">Clean these?</h3>
+    <p class="modal-lead" id="modalLead">This can't be undone. Locked files get skipped.</p>
+    <div class="modal-list" id="modalList"></div>
     <div class="modal-total" id="modalTotal"></div>
+    <p class="modal-status" id="modalStatus"></p>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="modalCancel" type="button">Keep</button>
-      <button class="btn btn-primary btn-danger" id="modalConfirm" type="button">Scrub it</button>
+      <button class="btn btn-secondary" id="modalCancel" type="button">Keep</button>
+      <button class="btn btn-danger" id="modalConfirm" type="button">Clean it</button>
     </div>
   </div>
 </div>
 
 <script>
-  const { invoke } = window.__TAURI__.core;
-  const $ = (id) => document.getElementById(id);
-  const fmtSize = (b) => {
-    const KB = 1024, MB = KB * 1024, GB = MB * 1024;
-    if (b >= GB) return (b / GB).toFixed(1) + ' GB';
-    if (b >= MB) return (b / MB).toFixed(1) + ' MB';
-    if (b >= KB) return (b / KB).toFixed(1) + ' KB';
-    return b + ' B';
+const $ = (id) => document.getElementById(id);
+const KB = 1024, MB = KB * 1024, GB = MB * 1024;
+const ICONS = {
+  Temp: 'assets/icon-temp.svg',
+  Npm: 'assets/icon-npm.svg',
+  Pip: 'assets/icon-pip.svg',
+  Pnpm: 'assets/icon-pnpm.svg',
+  Yarn: 'assets/icon-yarn.svg',
+  NuGet: 'assets/icon-nuget.svg',
+  Rush: 'assets/icon-rush.svg',
+};
+const KNOWN = [
+  ['Temp', 'User TEMP folder'],
+  ['Npm', 'npm cache'],
+  ['Pip', 'pip cache'],
+  ['Pnpm', 'pnpm store'],
+  ['Yarn', 'yarn cache'],
+  ['NuGet', 'NuGet packages'],
+];
+const COPY = {
+  Temp: {
+    scrub: 'Scratch files apps leave behind. A small gain.',
+    look: 'Apps may still be using these. I skip locked files.',
+    leave: 'Small scratch space. I would leave it.',
+    hover: 'Scratch files. Locked ones get skipped.',
+  },
+  Npm: {
+    scrub: 'Safe to scrub. npm downloads these again if a project asks.',
+    leave: 'Small. npm can keep this.',
+    hover: 'Old tarballs. npm can fetch these again.',
+  },
+  Pip: {
+    scrub: 'Safe to scrub. pip downloads these again.',
+    leave: 'Python packages download again when needed.',
+    hover: 'Python packages download again when needed.',
+  },
+  Pnpm: {
+    scrub: 'Prune drops packages nothing links anymore.',
+    leave: 'Small store. I would leave it.',
+    hover: 'Prune only drops what nothing links.',
+  },
+  Yarn: {
+    scrub: 'Safe to scrub. yarn refills this on the next install.',
+    leave: 'Small. yarn can keep this.',
+    hover: 'Yarn refills this on the next install.',
+  },
+  NuGet: {
+    look: 'The next build downloads these again. Opt-in — I will not tick this for you.',
+    leave: 'Small restore cache. I would leave it.',
+    hover: 'The next build downloads these again. Opt-in.',
+  },
+  Rush: {
+    scrub: 'Build debris. rush purge, or I delete common\\temp.',
+    leave: 'Not much debris. I would leave it.',
+    hover: 'Rush debris for this repo. Safe to purge.',
+  },
+};
+const BLURBS = ['Blub.', 'Apron stays on.', 'I only eat caches.', 'Show me a fat folder.'];
+const STATS_KEY = 'sucky-scrub-days';
+
+const state = {
+  targets: [],
+  rushRepos: [],
+  driveTotal: 0,
+  driveFree: 0,
+  busy: false,
+  scanned: false,
+  emptyOpen: false,
+  mood: 'idle',
+};
+let baseLine = 'I scrub the junk.';
+let blurbTimer = 0;
+const tweens = {};
+
+const inApp = !!(window.__TAURI__ && window.__TAURI__.core);
+let mock = null;
+
+function pretty(n) {
+  const digits = n >= 100 ? 0 : 1;
+  return n.toFixed(digits).replace(/\.0$/, '');
+}
+function fmtSize(bytes) {
+  const b = Math.max(0, bytes || 0);
+  if (b >= GB) return pretty(b / GB) + ' GB';
+  if (b >= MB) return pretty(b / MB) + ' MB';
+  if (b >= KB) return pretty(b / KB) + ' KB';
+  return Math.round(b) + ' B';
+}
+function stamp() {
+  return new Date().toLocaleTimeString('en-GB', { hour12: false });
+}
+function h(tag, props, kids) {
+  const node = document.createElement(tag);
+  for (const [key, val] of Object.entries(props || {})) {
+    if (val == null) continue;
+    if (key === 'class') node.className = val;
+    else node.setAttribute(key, val);
+  }
+  for (const kid of kids || []) node.append(kid);
+  return node;
+}
+function qRow(id) {
+  return [...document.querySelectorAll('.row')].find((el) => el.dataset.id === id);
+}
+function items() {
+  const targets = state.targets.map((t) => Object.assign(t, {
+    risky: t.id === 'Temp' || t.id === 'NuGet',
+    kindId: t.id,
+    icon: ICONS[t.id] || ICONS.Rush,
+  }));
+  const repos = state.rushRepos.map((r) => Object.assign(r, {
+    id: 'rush:' + r.path,
+    label: 'Rush repo',
+    available: true,
+    risky: false,
+    kindId: 'Rush',
+    icon: ICONS.Rush,
+    note: r.exists === false ? 'No common\\temp yet.' : (r.note || ''),
+  }));
+  return [...targets, ...repos];
+}
+const WORTH = 1 * MB;
+function advise(item) {
+  const copy = COPY[item.kindId] || COPY.Rush;
+  if (item.available === false) {
+    return { tone: 'mute', reason: item.note || 'Not on this machine.', hover: item.note || 'Not on this machine.' };
+  }
+  const size = item.sizeBytes || 0;
+  if (size <= 0) return { tone: 'leave', reason: 'Nothing in here.', hover: 'Nothing in here.' };
+  if (item.id === 'NuGet' && size >= WORTH) return { tone: 'look', reason: copy.look, hover: copy.hover };
+  if (size >= WORTH) return { tone: 'scrub', reason: copy.scrub || copy.look, hover: copy.hover || copy.look };
+  return { tone: 'leave', reason: copy.leave, hover: copy.hover };
+}
+function selectable(item) {
+  return !item.pending && item.available !== false && (item.sizeBytes || 0) > 0;
+}
+function selectedBytes() {
+  if (!state.scanned) return 0;
+  return items().filter((i) => i.checked && i.available).reduce((s, i) => s + (i.sizeBytes || 0), 0);
+}
+function suggestedBytes() {
+  if (!state.scanned) return 0;
+  return items().filter((i) => advise(i).tone === 'scrub').reduce((s, i) => s + (i.sizeBytes || 0), 0);
+}
+function totalBytes() {
+  if (!state.scanned) return 0;
+  return items().filter((i) => i.available).reduce((s, i) => s + (i.sizeBytes || 0), 0);
+}
+function drivePct() {
+  if (!state.driveTotal) return 0;
+  return Math.round((Math.max(0, state.driveTotal - state.driveFree) / state.driveTotal) * 100);
+}
+function summaryLine() {
+  if (!state.scanned) return 'Sucky scrubs dev caches, temp files, and Rush debris.';
+  const bytes = suggestedBytes();
+  const found = totalBytes();
+  const pct = drivePct();
+  if (pct >= 90 && bytes > 0) {
+    return `Sucky found ${fmtSize(bytes)} it can safely clear. That barely moves the needle, so most of your space is going somewhere outside the cache folders.`;
+  }
+  if (pct >= 90) return `Sucky found ${fmtSize(found)}, and none of it is big enough to clear. Most of your space is outside the cache folders.`;
+  if (bytes > 0) return `Sucky found ${fmtSize(bytes)} it can safely clear.`;
+  if (found > 0) return `Found ${fmtSize(found)}, but Sucky recommends leaving it.`;
+  return 'The tank is clear. Nothing to clean.';
+}
+
+function headline() {
+  const pct = drivePct();
+  const bytes = suggestedBytes();
+  if (!state.scanned) return { before: 'A clean tank, ', em: 'a lighter disk.', tone: '' };
+  if (pct >= 90) return { before: 'Your disk is ', em: 'almost full.', tone: 'tone-high' };
+  if (pct >= 70) return { before: 'Your disk is ', em: 'getting full.', tone: 'tone-mid' };
+  if (bytes > 0) return { before: 'A clean tank, ', em: 'a lighter disk.', tone: '' };
+  if (totalBytes() > 0) return { before: 'Nothing worth ', em: 'cleaning today.', tone: '' };
+  return { before: 'The tank is ', em: 'clear.', tone: '' };
+}
+
+function popSpeech(text) {
+  const el = $('speech');
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+function say(text) {
+  baseLine = text;
+  popSpeech(text);
+}
+function peek(text) { popSpeech(text); }
+function unpeek() { popSpeech(baseLine); }
+function blurb(text) {
+  peek(text);
+  clearTimeout(blurbTimer);
+  blurbTimer = setTimeout(unpeek, 2200);
+}
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+function logLine(msg, kind) {
+  const text = String(msg);
+  let cls = 'log-line';
+  if (kind) cls += ' ' + kind;
+  else {
+    // Only a real failure is red. "freed 0 B, 0 error(s)" is a neutral result.
+    const errors = text.match(/(\d+)\s+error\(s\)/i);
+    const failed = errors
+      ? Number(errors[1]) > 0
+      : /fail|error|!\s/i.test(text);
+    if (failed) cls += ' bad';
+    else if (/scrubbed|Sniff done|^done/i.test(text)) cls += ' good';
+  }
+  const line = h('div', { class: cls });
+  line.textContent = `[${stamp()}] ${text}`;
+  const log = $('logInner');
+  log.append(line);
+  log.scrollTop = log.scrollHeight;
+  const last = $('logLast');
+  if (last) last.textContent = `Last run ${stamp().slice(0, 5)} · ${text}`;
+}
+function setMood(mood) {
+  state.mood = mood;
+  const svg = document.querySelector('#mascot svg');
+  if (svg) svg.dataset.mood = mood;
+}
+function settleMood() {
+  const pct = drivePct();
+  const bytes = suggestedBytes();
+  if (pct >= 90) {
+    setMood('worry');
+    say(bytes
+      ? `I can clear ${fmtSize(bytes)}. The rest of this full disk is not cache.`
+      : `Tank is ${pct}% full. Nothing here is big enough to help.`);
+    return;
+  }
+  if (bytes > 0) {
+    setMood('idle');
+    say(`I spotted ${fmtSize(bytes)} — safe to scrub.`);
+    return;
+  }
+  const found = totalBytes();
+  if (found > 0) {
+    setMood('happy');
+    say(`Found ${fmtSize(found)}, but I'd leave it.`);
+    return;
+  }
+  setMood('happy');
+  say('Nothing big enough to bother.');
+}
+
+function tween(key, el, to, blank) {
+  if (blank) { el.textContent = '—'; tweens[key] = { value: 0, gen: (tweens[key]?.gen || 0) + 1 }; return; }
+  const from = tweens[key]?.value || 0;
+  const gen = (tweens[key]?.gen || 0) + 1;
+  tweens[key] = { value: from, gen };
+  const t0 = performance.now();
+  const frame = (now) => {
+    if (!tweens[key] || tweens[key].gen !== gen) return;
+    const k = Math.min(1, (now - t0) / 480);
+    const v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    tweens[key].value = v;
+    el.textContent = fmtSize(v);
+    if (k < 1) requestAnimationFrame(frame);
   };
-  const stamp = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
-  const log = (msg) => { const pre = $('log'); pre.innerHTML += `\n<em>[${stamp()}]</em> ${msg}`; pre.scrollTop = pre.scrollHeight; };
-
-  let state = { targets: [], rushRepos: [], driveTotal: 0, driveFree: 0, busy: false };
-
-  function selectedBytes() {
-    let t = state.targets.filter(t => t.checked && t.available).reduce((s, t) => s + (t.sizeBytes || 0), 0);
-    t += state.rushRepos.filter(r => r.checked).reduce((s, r) => s + (r.sizeBytes || 0), 0);
-    return t;
+  requestAnimationFrame(frame);
+}
+function renderGauge() {
+  const pct = state.scanned ? drivePct() : 0;
+  const gauge = $('gauge');
+  gauge.style.setProperty('--pct', pct);
+  const tone = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--flame)' : 'var(--leaf)';
+  gauge.style.setProperty('--gauge', state.scanned ? tone : 'var(--hairline)');
+  gauge.dataset.tone = pct >= 90 ? 'high' : pct >= 70 ? 'mid' : 'ok';
+  $('gaugePct').textContent = state.scanned ? pct + '%' : '—';
+  const cleanable = suggestedBytes();
+  const sel = selectedBytes();
+  tween('free', $('free'), state.driveFree, !state.scanned);
+  tween('sugg', $('sugg'), cleanable, !state.scanned);
+  tween('junk', $('junk'), sel, !state.scanned);
+  const suggStat = $('sugg').closest('.stat');
+  suggStat.classList.toggle('hot', cleanable > 0 || pct >= 90);
+  const pill = $('tankPill');
+  const note = $('tankNote');
+  if (!state.scanned) {
+    pill.hidden = true;
+    note.hidden = true;
+    return;
   }
-  function suggestedBytes() {
-    const big = (b) => (b || 0) >= 100 * 1024 * 1024;
-    let t = state.targets.filter(t => t.available && big(t.sizeBytes)).reduce((s, t) => s + t.sizeBytes, 0);
-    t += state.rushRepos.filter(r => big(r.sizeBytes)).reduce((s, r) => s + r.sizeBytes, 0);
-    return t;
+  pill.hidden = false;
+  pill.className = 'pill' + (pct >= 90 ? '' : pct >= 70 ? ' mid' : ' ok');
+  pill.textContent = pct >= 90 ? 'Almost full' : pct >= 70 ? 'Getting full' : 'Room to spare';
+  const amount = sel || cleanable;
+  const left = Math.max(0, state.driveFree + amount);
+  note.hidden = false;
+  note.textContent = amount
+    ? `Cleaning ${fmtSize(amount)} still leaves about ${fmtSize(left)} free.`
+    : `About ${fmtSize(state.driveFree)} stays free. Nothing here is big enough to clear.`;
+}
+function selectedFiles() {
+  if (!state.scanned) return 0;
+  return items().filter((i) => i.checked && i.available).reduce((s, i) => s + (i.fileCount || 0), 0);
+}
+function updateCleanButton() {
+  const sel = selectedBytes();
+  $('clean').textContent = sel > 0 ? `Clean ${fmtSize(sel)}` : 'Clean';
+  $('clean').disabled = sel === 0 || state.busy;
+  $('scanAgain').hidden = !state.scanned;
+  $('scanAgain').disabled = state.busy || cooling();
+  const warn = $('warn');
+  const files = selectedFiles();
+  if (state.scanned && sel > 0) {
+    warn.hidden = false;
+    warn.textContent = `Permanently deletes ${files.toLocaleString()} ${files === 1 ? 'file' : 'files'}. This cannot be undone.`;
+  } else {
+    warn.hidden = true;
   }
-  function totalBytes() {
-    return state.targets.reduce((s, t) => s + (t.sizeBytes || 0), 0) + state.rushRepos.reduce((s, r) => s + (r.sizeBytes || 0), 0);
+}
+function updateMarkButtons() {
+  const scrub = state.scanned ? items().filter((i) => advise(i).tone === 'scrub') : [];
+  const left = scrub.filter((i) => !i.checked);
+  let label = 'Select suggested';
+  let disabled = true;
+  if (state.scanned && !state.busy) {
+    if (!scrub.length) label = 'Nothing to select';
+    else if (!left.length) label = 'Suggested selected';
+    else { label = `Select ${left.length} suggested`; disabled = false; }
   }
-
-  function renderGauge() {
-    const total = state.driveTotal, free = state.driveFree;
-    if (!total) return;
-    const used = Math.max(0, total - free);
-    const pct = Math.round((used / total) * 100);
-    const gauge = $('gauge');
-    gauge.style.setProperty('--pct', pct);
-    gauge.style.setProperty('--gauge-color', pct >= 90 ? 'var(--danger)' : 'var(--green-500)');
-    $('gaugePct').textContent = pct + '%';
-    $('free').textContent = fmtSize(free);
-    $('sugg').textContent = fmtSize(suggestedBytes());
-    $('junk').textContent = fmtSize(totalBytes());
-    const bar = $('bar'); bar.style.width = Math.min(100, (totalBytes() / Math.max(total, 1)) * 100 * 2) + '%';
+  document.querySelectorAll('[data-action="mark"]').forEach((b) => {
+    b.textContent = label;
+    b.disabled = disabled;
+    if (b.id === 'markHero') b.hidden = disabled;
+  });
+}
+function updateToggle() {
+  const list = state.scanned ? items().filter(selectable) : [];
+  const allOn = list.length > 0 && list.every((i) => i.checked);
+  $('toggleAll').textContent = allOn ? 'Clear' : 'Select all with files';
+  $('toggleAll').hidden = list.length === 0;
+}
+function syncChrome() {
+  $('sub').textContent = summaryLine();
+  const head = headline();
+  const title = $('heroTitle');
+  title.className = head.tone;
+  title.replaceChildren(document.createTextNode(head.before), h('em', {}, [head.em]));
+  updateCleanButton();
+  updateMarkButtons();
+  updateToggle();
+  renderGauge();
+}
+const SCAN_MS = 3000;
+let cooldownUntil = 0;
+let cooldownTimer = 0;
+function cooling() {
+  return cooldownUntil > Date.now();
+}
+function paintCooldown() {
+  const left = Math.max(0, cooldownUntil - Date.now());
+  if (!left) {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+    cooldownTimer = 0;
+    cooldownUntil = 0;
   }
+  if (state.busy) return;
+  const secs = Math.ceil(left / 1000);
+  $('scan').disabled = left > 0;
+  $('scan').textContent = left ? `Wait ${secs}s` : 'Scan tank';
+  $('scanAgain').disabled = left > 0;
+  $('scanAgain').textContent = left ? `Scan again in ${secs}s` : 'Scan again';
+}
+function beginCooldown() {
+  cooldownUntil = Date.now() + SCAN_MS;
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(paintCooldown, 200);
+}
+function setBusy(on, label) {
+  state.busy = on;
+  document.body.classList.toggle('busy', on);
+  $('scan').disabled = on || cooling();
+  $('scan').textContent = on ? (label || 'Working…') : 'Scan tank';
+  $('addRepo').disabled = on;
+  $('repoInput').disabled = on;
+  updateCleanButton();
+  updateMarkButtons();
+  if (!on) paintCooldown();
+}
 
-  function updateCleanButton() {
-    const sel = selectedBytes();
-    $('clean').textContent = `Clean ${(sel / 1e9).toFixed(1)} GB`;
-    $('clean').disabled = sel === 0 || state.busy;
+function iso(d) {
+  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return z.toISOString().slice(0, 10);
+}
+function loadStats() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STATS_KEY) || '{}');
+    return { days: Array.isArray(parsed.days) ? parsed.days : [] };
+  } catch { return { days: [] }; }
+}
+function recordScrub() {
+  const stats = loadStats();
+  const today = iso(new Date());
+  if (!stats.days.includes(today)) stats.days.push(today);
+  stats.days = stats.days.slice(-60);
+  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  renderStreak();
+}
+function currentStreak(days) {
+  const set = new Set(days);
+  const d = new Date();
+  if (!set.has(iso(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (set.has(iso(d))) { n += 1; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function renderStreak() {
+  const stats = loadStats();
+  const host = $('streak');
+  host.replaceChildren();
+  const today = new Date();
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dot = document.createElement('i');
+    if (stats.days.includes(iso(d))) dot.className = 'on';
+    dot.title = iso(d);
+    host.append(dot);
   }
+  const n = currentStreak(stats.days);
+  const filled = stats.days.filter((d) => {
+    const then = new Date(d + 'T00:00:00');
+    return Date.now() - then.getTime() < 7 * 864e5;
+  }).length;
+  const label = `Cleaned ${filled} of the last 7 days`;
+  host.append(h('span', {}, [label]));
+  host.title = n > 0 ? `${n}-day streak. ${label}.` : label + '.';
+}
 
-  function renderRows() {
-    const container = $('rows');
-    container.innerHTML = '';
-    for (const t of state.targets) {
-      const row = document.createElement('label');
-      row.className = 'row' + (t.checked ? ' is-on' : '') + (t.available ? '' : ' unavailable');
-      row.innerHTML = `
-        <input class="check" type="checkbox" ${t.checked ? 'checked' : ''} ${t.available ? '' : 'disabled'}>
-        <div>
-          <div class="row-title">${t.label}${t.note ? ` <span style="color:var(--ink-faint);font-weight:500">${t.note}</span>` : ''}</div>
-          ${t.path ? `<div class="row-path">${t.path}</div>` : ''}
-        </div>
-        <span>${t.available ? '' : '<span class="chip">unavailable</span>'}</span>
-        <span class="size">${t.sizeBytes != null ? fmtSize(t.sizeBytes) + ' · ' + (t.fileCount ?? 0).toLocaleString() + ' files' : '—'}</span>`;
-      const box = row.querySelector('.check');
-      box.addEventListener('change', () => { t.checked = box.checked; row.classList.toggle('is-on', t.checked); updateCleanButton(); renderGauge(); });
-      container.appendChild(row);
-    }
-
-    const rush = $('rushRows');
-    rush.innerHTML = '';
-    for (const r of state.rushRepos) {
-      const row = document.createElement('label');
-      row.className = 'row' + (r.checked ? ' is-on' : '');
-      row.innerHTML = `
-        <input class="check" type="checkbox" ${r.checked ? 'checked' : ''}>
-        <div>
-          <div class="row-title">Rush repo</div>
-          <div class="row-path">${r.path}</div>
-        </div>
-        <button class="remove-rush" type="button" title="Remove from list">✕</button>
-        <span class="size">${r.sizeBytes != null ? fmtSize(r.sizeBytes) + ' · ' + (r.fileCount ?? 0).toLocaleString() + ' files' : '—'}</span>`;
-      const box = row.querySelector('.check');
-      box.addEventListener('change', () => { r.checked = box.checked; row.classList.toggle('is-on', r.checked); updateCleanButton(); renderGauge(); });
-      row.querySelector('.remove-rush').addEventListener('click', async (e) => {
-        e.preventDefault();
-        await invoke('remove_rush_repo', { path: r.path });
-        log(`removed repo ${r.path}`);
-        await scan();
-      });
-      rush.appendChild(row);
-    }
+function evidence(item) {
+  if (item.sizeBytes == null) return item.label;
+  const n = item.fileCount || 0;
+  return `${item.label} · ${fmtSize(item.sizeBytes)} · ${n.toLocaleString()} ${n === 1 ? 'file' : 'files'}`;
+}
+function renderSuggestions(list) {
+  const host = $('suggestRows');
+  host.replaceChildren();
+  if (!state.scanned) {
+    host.append(suggestButton(null, 'scrub', 'Sniffing the tank…', 'Sizes land here in a moment.', false));
+    return;
   }
-
-  async function scan() {
-    if (state.busy) return;
-    state.busy = true;
-    $('scan').disabled = true;
-    $('clean').disabled = true;
-    $('scan').textContent = 'Scanning…';
-    try {
-      const r = await invoke('scan_targets');
-      state.targets = r.targets;
-      state.rushRepos = r.rush_repos;
-      state.driveTotal = r.drive_total ?? 0;
-      state.driveFree = r.drive_free ?? 0;
-      renderRows();
-      renderGauge();
-      updateCleanButton();
-      log('scan complete');
-    } catch (e) {
-      log('scan failed: ' + e);
-    } finally {
-      state.busy = false;
-      $('scan').disabled = false;
-      $('scan').textContent = 'Scan my disk';
-      updateCleanButton();
-    }
+  const order = { scrub: 0, look: 1, leave: 2, mute: 3 };
+  const ranked = list
+    .filter((item) => (item.sizeBytes || 0) > 0 || item.available === false)
+    .map((item) => ({ item, adv: advise(item) }))
+    .sort((a, b) => order[a.adv.tone] - order[b.adv.tone] || (b.item.sizeBytes || 0) - (a.item.sizeBytes || 0));
+  if (!ranked.length) {
+    host.append(suggestButton(null, 'leave', 'Nothing on the list yet.', 'Add a Rush repo, or sniff again.', false));
+    return;
   }
-
-  function openConfirm() {
-    const items = [
-      ...state.targets.filter(t => t.checked && t.available).map(t => `${t.label} — ${fmtSize(t.sizeBytes || 0)}`),
-      ...state.rushRepos.filter(r => r.checked).map(r => `rush purge: ${r.path} — ${fmtSize(r.sizeBytes || 0)}`),
-    ];
-    $('modalList').innerHTML = items.map(i => `<li>${i}</li>`).join('');
-    $('modalTotal').textContent = `Total: ${fmtSize(selectedBytes())}`;
-    $('modal').classList.add('show');
+  for (const { item, adv } of ranked) {
+    const ev = evidence(item) + (adv.tone === 'look' ? '' : '');
+    const title = document.createElement('span');
+    title.className = 'ev';
+    title.textContent = evidence(item);
+    if (adv.tone === 'look') title.append(h('span', { class: 'tag' }, ['opt-in']));
+    host.append(suggestButton(item, adv.tone, null, adv.reason, item.checked, title));
   }
-  const closeModal = () => $('modal').classList.remove('show');
+}
+function suggestButton(item, tone, evText, why, on, evNode) {
+  const btn = h('button', { class: 'suggest' + (on ? ' is-on' : ''), type: 'button' });
+  if (item) btn.dataset.id = item.id;
+  btn.append(h('i', { class: 'dot ' + tone }));
+  if (evNode) btn.append(evNode);
+  else btn.append(h('span', { class: 'ev' }, [evText]));
+  btn.append(h('span', { class: 'why' }, [why]));
+  if (item) {
+    btn.addEventListener('click', () => onSuggest(item));
+    btn.addEventListener('pointerenter', () => peek(advise(item).hover));
+    btn.addEventListener('pointerleave', unpeek);
+  }
+  return btn;
+}
+function onSuggest(item) {
+  const adv = advise(item);
+  flashRow(item.id);
+  if (adv.tone === 'mute') { blurb(adv.reason); return; }
+  if (adv.tone === 'leave') { blurb("I'd leave that. It's too small to matter."); return; }
+  if (!selectable(item)) { blurb(adv.reason); return; }
+  item.checked = !item.checked;
+  renderAll();
+  if (adv.tone === 'look' && item.checked) blurb('Opt-in. You ticked it, so I will.');
+}
+function flashRow(id) {
+  const row = qRow(id);
+  if (!row) return;
+  row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  row.classList.remove('flash');
+  void row.offsetWidth;
+  row.classList.add('flash');
+}
 
-  async function clean() {
-    if (state.busy) return;
-    state.busy = true;
-    $('modalConfirm').disabled = true;
-    $('modalConfirm').textContent = 'Scrubbing…';
-    const payload = {
-      targetIds: state.targets.filter(t => t.checked && t.available).map(t => t.id),
-      rushRepos: state.rushRepos.filter(r => r.checked).map(r => r.path),
+function sizeBlock(item) {
+  const wrap = h('div', { class: 'size' });
+  if (item.pending || item.sizeBytes == null) {
+    wrap.append(h('b', {}, ['…']));
+    return wrap;
+  }
+  wrap.append(h('b', {}, [fmtSize(item.sizeBytes)]));
+  const n = item.fileCount || 0;
+  wrap.append(h('small', {}, [`${n.toLocaleString()} ${n === 1 ? 'file' : 'files'}`]));
+  return wrap;
+}
+function renderTargetRow(item) {
+  const adv = item.pending ? null : advise(item);
+  const canPick = selectable(item);
+  const row = h('div', { class: 'row' + (item.checked ? ' is-on' : '') + (item.available === false ? ' unavailable' : '') + (item.pending ? ' is-scanning' : '') + (!canPick && !item.pending ? ' unchosen' : '') });
+  row.dataset.id = item.id;
+  const box = h('input', { class: 'check', type: 'checkbox', 'aria-label': item.label });
+  if (item.checked) box.checked = true;
+  if (!canPick) box.disabled = true;
+  box.addEventListener('click', (e) => e.stopPropagation());
+  box.addEventListener('change', () => {
+    item.checked = box.checked;
+    renderAll();
+  });
+  const text = h('div');
+  const title = h('div', { class: 'row-title' }, [item.label]);
+  if (adv && adv.tone === 'look') title.append(h('span', { class: 'tag' }, ['opt-in']));
+  else if (adv && item.sizeBytes > 0 && adv.tone !== 'mute') title.append(h('span', { class: 'tag safe' }, ['Safe to clear']));
+  text.append(title);
+  if (item.path) {
+    const path = h('div', { class: 'row-path' }, [item.path]);
+    path.title = item.path;
+    path.addEventListener('click', (e) => e.stopPropagation());
+    text.append(path);
+  } else if (item.note) {
+    text.append(h('div', { class: 'row-path' }, [item.note]));
+  }
+  row.append(box, h('img', { class: 'ico', src: ICONS[item.kindId || item.id] || ICONS.Rush, alt: '' }), text);
+  if (item.kindId === 'Rush') {
+    const remove = h('button', { class: 'remove-rush', type: 'button', title: 'Remove from list' }, ['Remove']);
+    remove.addEventListener('click', (e) => { e.stopPropagation(); removeRepo(item.path); });
+    row.append(remove);
+  } else if (item.available === false) {
+    row.append(h('span', { class: 'chip' }, ['Not installed']));
+  } else if ((item.sizeBytes || 0) <= 0 && !item.pending) {
+    row.append(h('span', { class: 'chip' }, ['Empty']));
+  } else {
+    row.append(h('span'));
+  }
+  row.append(sizeBlock(item));
+  if (canPick) {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.check, .row-path, .remove-rush')) return;
+      item.checked = !item.checked;
+      renderAll();
+    });
+    row.addEventListener('pointerenter', () => peek(advise(item).hover));
+    row.addEventListener('pointerleave', unpeek);
+  } else if (adv && adv.tone === 'leave') {
+    row.addEventListener('click', () => blurb(adv.reason));
+  }
+  return row;
+}
+function renderSkeleton() {
+  $('rows').replaceChildren(...KNOWN.map(([id, label]) => renderTargetRow({
+    id, label, path: '', available: true, pending: true, checked: false, sizeBytes: null,
+  })));
+  $('rushRows').replaceChildren();
+}
+function renderAll() {
+  if (!state.scanned) {
+    renderSkeleton();
+    syncChrome();
+    return;
+  }
+  const list = items();
+  const kindOrder = new Map(KNOWN.map(([id], i) => [id, i]));
+  const byBiggest = (a, b) => {
+    const diff = (b.sizeBytes || 0) - (a.sizeBytes || 0);
+    if (diff) return diff;
+    return (kindOrder.get(a.kindId) ?? 99) - (kindOrder.get(b.kindId) ?? 99);
+  };
+  const all = list.filter((i) => i.kindId !== 'Rush');
+  const real = all.filter((i) => (i.sizeBytes || 0) > 0).sort(byBiggest);
+  const hollow = all.filter((i) => !(i.sizeBytes || 0)).sort(byBiggest);
+  const nodes = real.map(renderTargetRow);
+  if (hollow.length) {
+    const expanded = state.emptyOpen;
+    const head = h('button', {
+      class: 'group-head',
+      type: 'button',
+      'aria-expanded': String(!!expanded),
+    }, [
+      h('span', { class: 'caret' }, ['›']),
+      h('span', {}, ['Nothing to clean']),
+      h('span', { class: 'count' }, [`(${hollow.length})`]),
+    ]);
+    const body = h('div', { class: expanded ? 'group-body fold open' : 'group-body fold' }, [
+      h('div', { class: 'fold-inner' }, hollow.map(renderTargetRow)),
+    ]);
+    head.addEventListener('click', () => {
+      state.emptyOpen = !state.emptyOpen;
+      head.setAttribute('aria-expanded', String(state.emptyOpen));
+      body.classList.toggle('open', state.emptyOpen);
+    });
+    nodes.push(head, body);
+  }
+  $('rows').replaceChildren(...nodes);
+  const repos = list.filter((i) => i.kindId === 'Rush');
+  const rush = $('rushRows');
+  rush.replaceChildren(...repos.filter((i) => (i.sizeBytes || 0) > 0).map(renderTargetRow));
+  const status = $('rushStatus');
+  if (status) status.textContent = repos.length ? `${repos.length} added.` : 'None added yet.';
+  syncChrome();
+}
+
+function num(v) { return typeof v === 'number' ? v : 0; }
+function apply(raw) {
+  const prev = new Map(state.targets.map((t) => [t.id, t.checked]));
+  const prevRush = new Map(state.rushRepos.map((r) => [r.path, r.checked]));
+  state.targets = (raw.targets || []).map((t) => {
+    const sizeBytes = num(t.sizeBytes ?? t.size_bytes);
+    // Never show a tick on something that frees nothing, and don't pre-tick
+    // a cache I would not recommend, or the top card and the rows disagree.
+    const worthIt = sizeBytes >= WORTH && t.id !== 'NuGet';
+    const wanted = prev.has(t.id) ? prev.get(t.id) : worthIt;
+    return {
+      id: t.id,
+      label: t.label,
+      path: t.path || '',
+      available: !!t.available,
+      note: t.note || '',
+      checked: wanted && sizeBytes > 0,
+      sizeBytes,
+      fileCount: num(t.fileCount ?? t.file_count),
     };
+  });
+  const repos = raw.rushRepos || raw.rush_repos || [];
+  state.rushRepos = repos.map((r) => {
+    const sizeBytes = num(r.sizeBytes ?? r.size_bytes);
+    const worthIt = sizeBytes >= WORTH;
+    const wanted = prevRush.has(r.path) ? prevRush.get(r.path) : worthIt;
+    return {
+      path: r.path,
+      checked: wanted && sizeBytes > 0,
+      exists: r.exists !== false,
+      sizeBytes,
+      fileCount: num(r.fileCount ?? r.file_count),
+    };
+  });
+  state.driveTotal = num(raw.driveTotal ?? raw.drive_total);
+  state.driveFree = num(raw.driveFree ?? raw.drive_free);
+  state.scanned = true;
+  renderAll();
+}
+
+async function invoke(cmd, args) {
+  if (inApp) return window.__TAURI__.core.invoke(cmd, args);
+  return mockInvoke(cmd, args || {});
+}
+function onJob(payload) {
+  if (!payload || !payload.id) return;
+  document.querySelectorAll('.row.is-scanning').forEach((r) => r.classList.remove('is-scanning'));
+  const row = qRow(payload.id);
+  if (row) row.classList.add('is-scanning');
+  if ($('modal').classList.contains('show') && payload.label) $('modalStatus').textContent = payload.label;
+  if (payload.label && state.busy) say(payload.label);
+}
+async function measure() {
+  const raw = await invoke('scan_targets');
+  apply(raw);
+  return true;
+}
+async function scan() {
+  if (state.busy || cooling()) return false;
+  setBusy(true, 'Sniffing…');
+  document.body.classList.remove('scanning');
+  void document.body.offsetWidth;
+  document.body.classList.add('scanning');
+  setMood('scan');
+  say('Sniffing the tank…');
+  $('result').classList.remove('show');
+  const started = performance.now();
+  try {
+    const raw = await invoke('scan_targets');
+    const left = SCAN_MS - (performance.now() - started);
+    if (left > 0) await new Promise((done) => setTimeout(done, left));
+    apply(raw);
+    logLine('Sniff done.', 'good');
+    settleMood();
+    beginCooldown();
+    return true;
+  } catch (err) {
+    logLine('Scan failed: ' + err, 'bad');
+    toast('Scan failed. ' + err);
+    setMood('worry');
+    say('The sniff failed. Try again.');
+    return false;
+  } finally {
+    document.body.classList.remove('scanning');
+    setBusy(false);
+  }
+}
+function markSuggested() {
+  if (state.busy || !state.scanned) return;
+  const list = items();
+  const scrub = list.filter((i) => advise(i).tone === 'scrub');
+  if (!scrub.length) { toast('Nothing big enough to mark.'); return; }
+  const already = scrub.every((i) => i.checked);
+  scrub.forEach((i) => { i.checked = true; });
+  renderAll();
+  const bytes = scrub.reduce((s, i) => s + (i.sizeBytes || 0), 0);
+  const looked = list.filter((i) => advise(i).tone === 'look').map((i) => i.label);
+  if (already) { toast('Suggested caches are already marked.'); return; }
+  const extra = looked.length ? ` Left ${looked.join(' and ')} for you.` : '';
+  toast(`Marked ${fmtSize(bytes)}.${extra}`);
+  say(`Marked ${fmtSize(bytes)} — safe to scrub.`);
+}
+function openConfirm() {
+  if (state.busy) return;
+  if (!selectedBytes()) { toast('Tick a cache first, or mark what I suggested.'); return; }
+  const chosen = items().filter((i) => i.checked && i.available);
+  const list = $('modalList');
+  list.replaceChildren(...chosen.map((item) => {
+    const text = h('div');
+    text.append(h('b', {}, [item.label]));
+    text.append(h('span', {}, [item.path ? item.path : fmtSize(item.sizeBytes || 0)]));
+    const row = h('div', { class: 'modal-item' });
+    row.append(h('img', { src: item.icon, alt: '' }), text, h('b', {}, [fmtSize(item.sizeBytes || 0)]));
+    return row;
+  }));
+  $('modalTotal').textContent = fmtSize(selectedBytes()) + ' to scrub';
+  $('modalLead').textContent = 'This cannot be undone. I skip files that are in use, and I will show you exactly what left.';
+  $('modalStatus').textContent = '';
+  $('modalConfirm').disabled = false;
+  $('modalConfirm').textContent = 'Clean it';
+  $('modal').classList.add('show');
+  $('modalConfirm').focus();
+}
+function closeModal() {
+  if (state.busy) return;
+  $('modal').classList.remove('show');
+}
+async function clean() {
+  if (state.busy) return;
+  const chosen = items().filter((i) => i.checked && i.available);
+  const ids = chosen.map((i) => i.id);
+  const before = new Map(chosen.map((i) => [i.id, i.sizeBytes || 0]));
+  const pctBefore = drivePct();
+  const freeBefore = state.driveFree;
+  setBusy(true, 'Scrubbing…');
+  setMood('scan');
+  $('modalConfirm').disabled = true;
+  $('modalConfirm').textContent = 'Scrubbing…';
+  $('modalStatus').textContent = 'Starting the scrub…';
+  try {
+    const targetIds = chosen.filter((i) => i.kindId !== 'Rush').map((i) => i.id);
+    const rushRepos = chosen.filter((i) => i.kindId === 'Rush').map((i) => i.path);
+    const result = await invoke('clean_targets', { targetIds, rushRepos });
+    for (const line of result.lines || []) logLine(line);
+    let rescanned = false;
+    try { rescanned = !!(await measure()); } catch (err) { logLine('Scan failed: ' + err, 'bad'); }
+    let freed = 0;
+    if (rescanned) {
+      const after = new Map(items().map((i) => [i.id, i.sizeBytes || 0]));
+      for (const id of ids) freed += Math.max(0, (before.get(id) || 0) - (after.get(id) || 0));
+    }
+    if (!freed) freed = result.totalFreed ?? result.total_freed ?? 0;
+    const busyFiles = (result.lines || []).some((line) => /skip|error|fail/i.test(line));
+    recordScrub();
+    celebrate();
+    setMood('happy');
+    // Anything I just cleaned is no longer a choice. Leaving the ticks on made
+    // "Selected" disagree with "Suggested 0 B".
+    for (const item of items()) {
+      if (ids.includes(item.id) && (item.sizeBytes || 0) < 100 * MB) item.checked = false;
+    }
+    renderAll();
+    const line = freed
+      ? `Ahh. ${fmtSize(freed)} lighter.`
+      : 'Already clear.';
+    const tight = drivePct() >= 90 ? ' Tank is still tight.' : '';
+    const skipped = busyFiles ? ' A few files were busy, so I left them.' : '';
+    say(line + tight);
+    toast(line + skipped);
+    logLine(busyFiles ? `Sucky cleaned ${fmtSize(freed)}.` : `Sucky cleaned ${fmtSize(freed)}, 0 errors.`, 'good');
+    showResult(freed, pctBefore, freeBefore, chosen, busyFiles);
+  } catch (err) {
+    logLine('Clean failed: ' + err, 'bad');
+    toast('Scrub failed. ' + err);
+    setMood('worry');
+    say('The scrub failed. Nothing else was touched.');
+  } finally {
+    setBusy(false);
+    $('modalConfirm').disabled = false;
+    $('modalConfirm').textContent = 'Clean it';
+    $('modal').classList.remove('show');
+  }
+}
+function showResult(freed, pctBefore, freeBefore, chosen, skipped) {
+  const pctAfter = drivePct();
+  const gained = Math.max(0, state.driveFree - freeBefore);
+  const box = $('result');
+  $('resultHead').textContent = freed
+    ? `Cleaned ${fmtSize(freed)}.`
+    : 'Nothing freed this time.';
+  const bits = [];
+  if (pctAfter < pctBefore) bits.push(`Disk ${pctBefore}% → ${pctAfter}% used.`);
+  if (gained) bits.push(`${fmtSize(gained)} now free.`);
+  bits.push('Undo is not possible, so this is what left:');
+  if (skipped) bits.push('A few locked files were left alone.');
+  $('resultSub').textContent = bits.join(' ');
+  $('resultFold').classList.remove('open');
+  $('resultToggle').textContent = 'View details';
+  $('resultToggle').setAttribute('aria-expanded', 'false');
+  $('resultList').replaceChildren(...chosen.map((item) => {
+    const row = h('li');
+    row.append(h('b', {}, [item.label]), h('span', {}, [fmtSize(item.sizeBytes || 0)]));
+    return row;
+  }));
+  box.classList.add('show');
+}
+async function addRepo() {
+  const path = $('repoInput').value.trim().replace(/^"|"$/g, '');
+  if (!path) { toast('Paste a folder that contains rush.json.'); return; }
+  try {
+    await invoke('add_rush_repo', { path });
+    $('repoInput').value = '';
+    logLine('Added repo ' + path);
+    toast('Repo added. Sniffing it now.');
+    await scan();
+  } catch (err) {
+    logLine('Add repo failed: ' + err, 'bad');
+    toast(String(err));
+  }
+}
+async function removeRepo(path) {
+  try {
+    await invoke('remove_rush_repo', { path });
+    logLine('Removed repo ' + path);
+    await scan();
+  } catch (err) {
+    logLine('Remove repo failed: ' + err, 'bad');
+    toast(String(err));
+  }
+}
+async function takePaths(paths) {
+  if (!paths.length) return;
+  let added = 0;
+  for (const path of paths) {
     try {
-      const r = await invoke('clean_targets', payload);
-      for (const line of r.lines) log(line);
-      log(`<em>Sucky scrubbed ${fmtSize(r.total_freed)} of junk</em>`);
-    } catch (e) {
-      log('clean failed: ' + e);
-    } finally {
-      state.busy = false;
-      $('modalConfirm').disabled = false;
-      $('modalConfirm').textContent = 'Scrub it';
-      closeModal();
-      await scan();
+      await invoke('add_rush_repo', { path });
+      logLine('Added repo ' + path);
+      added += 1;
+    } catch (err) {
+      logLine('Add repo failed: ' + err, 'bad');
+      toast(String(err));
     }
   }
+  if (added) {
+    toast(added === 1 ? 'Repo added. Sniffing it now.' : `Added ${added} repos.`);
+    await scan();
+  }
+}
+function celebrate() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const layer = h('div', { class: 'confetti' });
+  const colors = ['#FF9E00', '#FFC233', '#2FA84F', '#C2410C', '#FFFFFF'];
+  for (let i = 0; i < 26; i += 1) {
+    const bit = document.createElement('i');
+    bit.style.left = (4 + Math.random() * 92) + '%';
+    bit.style.background = colors[i % colors.length];
+    bit.style.animationDuration = (0.9 + Math.random() * 0.8) + 's';
+    bit.style.animationDelay = (Math.random() * 0.12) + 's';
+    layer.append(bit);
+  }
+  document.body.append(layer);
+  setTimeout(() => layer.remove(), 1900);
+}
 
+function wireMascot() {
+  const host = $('mascot');
+  const svg = host.querySelector('svg');
+  if (!svg) return;
+  svg.dataset.mood = state.mood;
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setInterval(() => {
+      if (state.mood === 'happy') return;
+      svg.classList.add('blink');
+      setTimeout(() => svg.classList.remove('blink'), 140);
+    }, 4600);
+  }
+  let px = 0, py = 0, raf = 0;
+  const track = () => {
+    raf = 0;
+    const rect = host.getBoundingClientRect();
+    const dx = (px - (rect.left + rect.width / 2)) / Math.max(rect.width, 1);
+    host.style.rotate = Math.max(-8, Math.min(8, dx * 10)) + 'deg';
+    svg.querySelectorAll('.eye').forEach((eye) => {
+      const white = eye.querySelector('.eye-white');
+      const iris = eye.querySelector('.iris');
+      if (!white || !iris) return;
+      const box = white.getBoundingClientRect();
+      const ang = Math.atan2(py - (box.top + box.height / 2), px - (box.left + box.width / 2));
+      const dist = Math.min(4.5, Math.hypot(px - box.left, py - box.top) / 50);
+      iris.style.transform = `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px)`;
+    });
+  };
+  window.addEventListener('pointermove', (e) => {
+    px = e.clientX; py = e.clientY;
+    if (!raf) raf = requestAnimationFrame(track);
+  });
+  const boop = () => {
+    if (state.busy) { blurb('Still sniffing…'); return; }
+    host.classList.remove('boop');
+    void host.offsetWidth;
+    host.classList.add('boop');
+    blurb(BLURBS[Math.floor(Math.random() * BLURBS.length)]);
+  };
+  host.addEventListener('click', boop);
+  host.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); boop(); }
+  });
+}
+async function loadMascot() {
+  try {
+    const res = await fetch('assets/mascot.svg');
+    $('mascot').innerHTML = await res.text();
+    wireMascot();
+  } catch {
+    $('mascot').append(h('img', { src: 'assets/mark.svg', alt: 'Sucky' }));
+  }
+}
+
+function bindChrome() {
   $('scan').addEventListener('click', scan);
-  $('clean').addEventListener('click', openConfirm);
+  $('scanAgain').addEventListener('click', scan);  $('clean').addEventListener('click', openConfirm);
+  document.querySelectorAll('[data-action="mark"]').forEach((b) => b.addEventListener('click', markSuggested));
+  $('toggleAll').addEventListener('click', () => {
+    if (!state.scanned || state.busy) return;
+    const list = items().filter(selectable);
+    const allOn = list.every((i) => i.checked);
+    list.forEach((i) => { i.checked = !allOn; });
+    renderAll();
+  });
   $('modalCancel').addEventListener('click', closeModal);
   $('modalConfirm').addEventListener('click', clean);
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
-  $('clearLog').addEventListener('click', () => { $('log').textContent = ''; });
-  $('addRepo').addEventListener('click', async () => {
-    const input = $('repoInput');
-    const path = input.value.trim().replace(/^"|"$/g, '');
-    if (!path) return;
-    try { await invoke('add_rush_repo', { path }); input.value = ''; log(`added repo ${path}`); await scan(); }
-    catch (e) { log('add repo failed: ' + e); }
+  $('clearLog').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('logInner').replaceChildren();
+    $('logLast').textContent = 'Log cleared.';
   });
-  $('toggleAll').addEventListener('click', () => {
-    const boxes = state.targets.filter(t => t.available);
-    const allOn = boxes.every(t => t.checked) && state.rushRepos.every(r => r.checked);
-    state.targets.forEach(t => { if (t.available) t.checked = !allOn; });
-    state.rushRepos.forEach(r => r.checked = !allOn);
-    renderRows(); updateCleanButton(); renderGauge();
+  $('logToggle').addEventListener('click', () => {
+    const open = $('logWrap').classList.toggle('open');
+    $('logToggle').textContent = open ? 'Hide log' : 'Show log';
+    $('logToggle').setAttribute('aria-expanded', String(open));
+    $('clearLog').hidden = !open;
   });
+  $('rushToggle').addEventListener('click', () => {
+    const open = $('rushFold').classList.toggle('open');
+    $('rushToggle').textContent = open ? 'Close' : 'Add a Rush repo';
+    $('rushToggle').setAttribute('aria-expanded', String(open));
+  });
+  $('resultToggle').addEventListener('click', () => {
+    const open = $('resultFold').classList.toggle('open');
+    $('resultToggle').textContent = open ? 'Hide details' : 'View details';
+    $('resultToggle').setAttribute('aria-expanded', String(open));
+  });
+  $('addRepo').addEventListener('click', addRepo);
+  $('gauge').addEventListener('click', () => {
+    if (!state.scanned || !state.driveTotal) { blurb('Sniff first and I will read the tank.'); return; }
+    blurb(`${drivePct()}% used. ${fmtSize(state.driveFree)} still free.`);
+  });
+  document.addEventListener('keydown', (e) => {
+    const modal = $('modal').classList.contains('show');
+    if (e.key === 'Escape') { if (modal) closeModal(); return; }
+    if (e.target.closest('input, textarea')) {
+      if (e.key === 'Enter' && e.target.id === 'repoInput') addRepo();
+      return;
+    }
+    if (modal && e.key === 'Enter') { e.preventDefault(); clean(); return; }
+    if (modal || state.busy) return;
+    if (e.key === 's' || e.key === 'S') scan();
+    if (e.key === 'm' || e.key === 'M') markSuggested();
+    if (e.key === 'Enter') openConfirm();
+  });
+  const drop = $('drop');
+  if (inApp && window.__TAURI__.event?.listen) {
+    const listen = window.__TAURI__.event.listen.bind(window.__TAURI__.event);
+    listen('job-progress', (e) => onJob(e.payload));
+    listen('tauri://drag-enter', () => drop.classList.add('hot'));
+    listen('tauri://drag-leave', () => drop.classList.remove('hot'));
+    listen('tauri://drag-drop', (e) => {
+      drop.classList.remove('hot');
+      const payload = e.payload;
+      const paths = Array.isArray(payload) ? payload : (payload && payload.paths) || [];
+      takePaths(paths);
+    });
+  } else {
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('hot'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('hot'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('hot');
+      toast('Drop the folder on the app window so I can see its path.');
+    });
+  }
+}
 
-  scan(); // auto-scan on launch
+function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function seedMock() {
+  mock = {
+    targets: [
+      { id: 'Temp', label: 'User TEMP folder', path: 'C:\\Users\\ramen\\AppData\\Local\\Temp', available: true, note: 'locked files skipped', checked: false, sizeBytes: 1.7 * GB, fileCount: 8420 },
+      { id: 'Npm', label: 'npm cache', path: 'C:\\Users\\ramen\\AppData\\Local\\npm-cache', available: true, note: '', checked: true, sizeBytes: 2.4 * GB, fileCount: 18203 },
+      { id: 'Pip', label: 'pip cache', path: 'C:\\Users\\ramen\\AppData\\Local\\pip\\cache', available: true, note: '', checked: true, sizeBytes: 680 * MB, fileCount: 2401 },
+      { id: 'Pnpm', label: 'pnpm store', path: '', available: false, note: 'pnpm not on PATH', checked: false, sizeBytes: 0, fileCount: 0 },
+      { id: 'Yarn', label: 'yarn cache', path: 'C:\\Users\\ramen\\AppData\\Local\\Yarn\\Cache', available: true, note: '', checked: true, sizeBytes: 22 * MB, fileCount: 140 },
+      { id: 'NuGet', label: 'NuGet packages', path: 'C:\\Users\\ramen\\.nuget\\packages', available: true, note: '', checked: false, sizeBytes: 3.2 * GB, fileCount: 22110 },
+    ],
+    rushRepos: [
+      { path: 'D:\\work\\monorepo', checked: true, exists: true, sizeBytes: 900 * MB, fileCount: 6402 },
+    ],
+    driveTotal: 1000 * GB,
+    driveFree: 620 * GB,
+  };
+}
+async function mockInvoke(cmd, args) {
+  if (!mock) seedMock();
+  if (cmd === 'scan_targets') {
+    const steps = [
+      ...mock.targets.map((t) => [t.id, t.label]),
+      ...mock.rushRepos.map((r) => ['rush:' + r.path, 'Rush repo']),
+    ];
+    for (const [id, label] of steps) {
+      onJob({ id, label: `Sniffing ${label}…` });
+      await wait(70);
+    }
+    return structuredClone(mock);
+  }
+  if (cmd === 'clean_targets') {
+    for (const id of args.targetIds || []) {
+      onJob({ id, label: `Scrubbing ${id}…` });
+      await wait(120);
+      const t = mock.targets.find((row) => row.id === id);
+      if (t) { t.sizeBytes = Math.round((t.sizeBytes || 0) * 0.04); t.fileCount = 12; }
+    }
+    for (const path of args.rushRepos || []) {
+      onJob({ id: 'rush:' + path, label: 'Scrubbing Rush repo…' });
+      await wait(120);
+      const r = mock.rushRepos.find((row) => row.path === path);
+      if (r) { r.sizeBytes = Math.round((r.sizeBytes || 0) * 0.04); r.fileCount = 8; }
+    }
+    return { lines: ['Scrub finished.', '  done'], totalFreed: 0 };
+  }
+  if (cmd === 'add_rush_repo') {
+    if (mock.rushRepos.some((r) => r.path === args.path)) throw new Error('repo already in list');
+    mock.rushRepos.push({ path: args.path, checked: true, exists: true, sizeBytes: 140 * MB, fileCount: 480 });
+    return null;
+  }
+  if (cmd === 'remove_rush_repo') {
+    mock.rushRepos = mock.rushRepos.filter((r) => r.path !== args.path);
+    return null;
+  }
+  throw new Error('unknown command ' + cmd);
+}
+
+renderStreak();
+renderAll();
+bindChrome();
+loadMascot();
+scan();
 </script>
 </body>
 </html>

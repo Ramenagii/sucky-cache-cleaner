@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sucky — Cache Cleaner</title>
+  <meta name="description" content="Sucky finds Windows dev caches and scrubs the ones you pick. Install the desktop app.">
+  <link rel="icon" href="mark.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #EDEDE7;
+      --panel: #FFFFFF;
+      --ink: #141414;
+      --text: #3A3A35;
+      --muted: #605F58;
+      --flame: #FF9E00;
+      --ember: #C2410C;
+      --ember-dark: #9A3412;
+      --leaf: #2FA84F;
+      --hairline: #E0E0DA;
+      --display: "Baloo 2", "Trebuchet MS", sans-serif;
+      --body: "Nunito Sans", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      min-height: 100vh;
+      background: var(--paper);
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 17px;
+      line-height: 1.45;
+    }
+    a { color: inherit; }
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 22px 24px 0;
+    }
+    .top img { width: 46px; height: 46px; }
+    .brand { font-family: var(--display); font-weight: 800; font-size: 26px; color: var(--ink); letter-spacing: -0.4px; }
+    .brand small { display: block; margin-top: 2px; font-family: var(--body); font-weight: 700; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .top .install { margin-left: auto; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 72px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 36px; align-items: center; }
+    h1 {
+      margin: 0;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(44px, 6vw, 68px);
+      line-height: 0.95;
+      letter-spacing: -1.5px;
+      color: var(--ink);
+    }
+    h1 em { font-style: normal; color: var(--ember); }
+    .lede { max-width: 460px; margin: 18px 0 0; font-size: 18px; font-weight: 700; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 28px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 54px;
+      padding: 0 26px;
+      border-radius: 999px;
+      border: 1.5px solid transparent;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 18px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--ember); color: white; }
+    .btn-primary:hover { background: var(--ember-dark); }
+    .btn-secondary { background: white; color: var(--ink); border-color: var(--hairline); }
+    .btn-secondary:hover { border-color: var(--ink); }
+    .fine { margin: 14px 0 0; max-width: 440px; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .stage { display: flex; justify-content: center; }
+    .stage img { width: min(100%, 420px); height: auto; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+    .card {
+      background: var(--panel);
+      border-radius: 28px;
+      padding: 22px 22px 20px;
+      box-shadow: 0 6px 24px rgba(20, 20, 20, 0.08);
+    }
+    .card span {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .card b { display: block; margin-bottom: 6px; font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--ink); letter-spacing: -0.3px; }
+    .card p { margin: 0; font-size: 15px; font-weight: 700; }
+    .card .ok { color: var(--leaf); }
+    footer { max-width: 1040px; margin: 0 auto; padding: 0 24px 36px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    @media (max-width: 860px) {
+      .hero, .cards { grid-template-columns: 1fr; }
+      .top .install { display: none; }
+      .stage { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <img src="mark.svg" alt="">
+    <div class="brand">Sucky<small>Cache cleaner</small></div>
+    <a class="btn btn-primary install" href="https://github.com/Ramenagii/sucky-cache-cleaner/releases/latest/download/Sucky%20Cache%20Cleaner_0.1.0_x64-setup.exe">Install</a>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>I scrub the <em>caches.</em></h1>
+        <p class="lede">Sucky looks through the usual Windows junk folders and shows you what is safe to clear. You pick the ones that leave.</p>
+        <div class="actions">
+          <a class="btn btn-primary" id="install" href="https://github.com/Ramenagii/sucky-cache-cleaner/releases/latest/download/Sucky%20Cache%20Cleaner_0.1.0_x64-setup.exe">Install for Windows</a>
+          <a class="btn btn-secondary" href="https://github.com/Ramenagii/sucky-cache-cleaner">View the source</a>
+        </div>
+        <p class="fine">Windows 10 or 11, 64-bit. The setup file adds Sucky to the Start menu. Nothing is deleted until you open the app and press Clean.</p>
+      </div>
+      <div class="stage">
+        <img src="mascot.svg" alt="Sucky, a pleco in an orange apron with a scrub brush">
+      </div>
+    </section>
+    <section class="cards" aria-label="What the install includes">
+      <article class="card">
+        <span>What I look at</span>
+        <b>The usual caches</b>
+        <p>User temp, npm, pip, pnpm, yarn, NuGet, and Rush repos you add yourself.</p>
+      </article>
+      <article class="card">
+        <span>What stays</span>
+        <b>The rest of the disk</b>
+        <p>I never scan the whole drive. Files that are in use stay where they are.</p>
+      </article>
+      <article class="card">
+        <span>Before you clean</span>
+        <b class="ok">You confirm it</b>
+        <p>Cleaning is permanent. Sucky tells you the size first, then what actually left.</p>
+      </article>
+    </section>
+  </main>
+  <footer>Windows 10 and 11 desktop app.</footer>
+</body>
+</html>
